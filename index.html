@@ -1,0 +1,1794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta http-equiv="X-Content-Type-Options" content="nosniff"/>
+  <meta http-equiv="X-Frame-Options" content="DENY"/>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'unsafe-inline'"/>
+  <title>NeerVeda — Water Wisdom</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600;700&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    /* ─────────────────────────────────────────
+       DESIGN TOKENS — NeerVeda Water Theme
+    ───────────────────────────────────────── */
+    :root {
+      --ink:        #0a1628;
+      --ink-soft:   #1e3a5f;
+      --ink-muted:  #4a6080;
+      --water-deep: #0d4f6e;
+      --water:      #1a7fa8;
+      --water-mid:  #2ba5d4;
+      --water-glow: #5fc8ec;
+      --water-pale: #e8f6fb;
+      --saffron:    #f5a623;
+      --danger:     #e05252;
+      --success:    #2ecc71;
+      --warning:    #f39c12;
+      --white:      #ffffff;
+      --glass:      rgba(255,255,255,0.07);
+      --glass-border: rgba(255,255,255,0.15);
+      --card-bg:    rgba(255,255,255,0.96);
+      --shadow-deep: 0 32px 80px rgba(10,22,40,0.45);
+      --shadow-card: 0 8px 32px rgba(10,22,40,0.12);
+      --radius:     16px;
+      --radius-sm:  10px;
+      --transition: 0.3s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--ink);
+      color: var(--ink);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ─────────────────────────────────────────
+       BACKGROUND — Animated Water Scene
+    ───────────────────────────────────────── */
+    .bg-scene {
+      position: fixed; inset: 0; z-index: 0;
+      background: linear-gradient(135deg, #071320 0%, #0a2040 40%, #0d4f6e 100%);
+      overflow: hidden;
+    }
+
+    .bg-scene::before {
+      content: '';
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% 80%, rgba(26,127,168,0.25) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 20%, rgba(13,79,110,0.3) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 60% at 50% 50%, rgba(95,200,236,0.08) 0%, transparent 70%);
+    }
+
+    /* Floating water ripples */
+    .ripple {
+      position: absolute;
+      border-radius: 50%;
+      border: 1px solid rgba(95,200,236,0.15);
+      animation: rippleExpand 8s ease-out infinite;
+    }
+    .ripple:nth-child(1) { width: 300px; height: 300px; left: 10%; top: 60%; animation-delay: 0s; }
+    .ripple:nth-child(2) { width: 500px; height: 500px; left: 60%; top: 20%; animation-delay: 2s; }
+    .ripple:nth-child(3) { width: 200px; height: 200px; left: 80%; top: 70%; animation-delay: 4s; }
+    .ripple:nth-child(4) { width: 400px; height: 400px; left: 30%; top: 10%; animation-delay: 6s; }
+
+    @keyframes rippleExpand {
+      0%   { transform: scale(0.5); opacity: 0.6; }
+      100% { transform: scale(2.5); opacity: 0; }
+    }
+
+    /* Floating particles */
+    .particle {
+      position: absolute;
+      width: 3px; height: 3px;
+      background: var(--water-glow);
+      border-radius: 50%;
+      animation: floatUp linear infinite;
+      opacity: 0.4;
+    }
+    @keyframes floatUp {
+      0%   { transform: translateY(100vh) scale(0); opacity: 0; }
+      10%  { opacity: 0.4; }
+      90%  { opacity: 0.4; }
+      100% { transform: translateY(-20px) scale(1); opacity: 0; }
+    }
+
+    /* Mandala / geometric overlay */
+    .geo-overlay {
+      position: absolute;
+      width: 700px; height: 700px;
+      right: -150px; top: -150px;
+      border: 1px solid rgba(95,200,236,0.06);
+      border-radius: 50%;
+      animation: slowSpin 60s linear infinite;
+    }
+    .geo-overlay::before {
+      content: '';
+      position: absolute; inset: 40px;
+      border: 1px solid rgba(95,200,236,0.08);
+      border-radius: 50%;
+    }
+    .geo-overlay::after {
+      content: '';
+      position: absolute; inset: 100px;
+      border: 1px solid rgba(95,200,236,0.06);
+      border-radius: 50%;
+    }
+    @keyframes slowSpin { to { transform: rotate(360deg); } }
+
+    /* ─────────────────────────────────────────
+       LAYOUT
+    ───────────────────────────────────────── */
+    .app { position: relative; z-index: 1; min-height: 100vh; display: flex; }
+
+    /* ─── LEFT PANEL ─── */
+    .left-panel {
+      width: 52%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 60px 64px;
+      position: relative;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 64px;
+    }
+    .brand-icon {
+      width: 48px; height: 48px;
+      background: linear-gradient(135deg, var(--water-mid), var(--water-glow));
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px;
+      box-shadow: 0 8px 24px rgba(43,165,212,0.4);
+    }
+    .brand-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--white);
+      letter-spacing: 0.5px;
+    }
+    .brand-name span { color: var(--water-glow); }
+
+    .hero-tagline {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(36px, 4vw, 58px);
+      font-weight: 300;
+      color: var(--white);
+      line-height: 1.15;
+      margin-bottom: 24px;
+    }
+    .hero-tagline strong {
+      font-weight: 600;
+      color: var(--water-glow);
+      display: block;
+    }
+
+    .hero-sub {
+      font-size: 16px;
+      color: rgba(255,255,255,0.55);
+      line-height: 1.7;
+      max-width: 440px;
+      margin-bottom: 52px;
+    }
+
+    .stats-row {
+      display: flex;
+      gap: 32px;
+      flex-wrap: wrap;
+    }
+    .stat-chip {
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      padding: 16px 24px;
+      backdrop-filter: blur(12px);
+      animation: fadeSlideUp 0.6s ease both;
+    }
+    .stat-chip:nth-child(1) { animation-delay: 0.1s; }
+    .stat-chip:nth-child(2) { animation-delay: 0.2s; }
+    .stat-chip:nth-child(3) { animation-delay: 0.3s; }
+
+    .stat-number {
+      font-family: 'DM Mono', monospace;
+      font-size: 22px;
+      font-weight: 500;
+      color: var(--water-glow);
+    }
+    .stat-label {
+      font-size: 12px;
+      color: rgba(255,255,255,0.45);
+      margin-top: 2px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* ─── RIGHT PANEL (Auth Card) ─── */
+    .right-panel {
+      width: 48%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 48px 40px 0;
+    }
+
+    .auth-card {
+      background: var(--card-bg);
+      border-radius: 24px;
+      padding: 48px 44px;
+      width: 100%;
+      max-width: 460px;
+      box-shadow: var(--shadow-deep);
+      animation: cardEntrance 0.7s cubic-bezier(0.2,0.8,0.2,1) both;
+    }
+    @keyframes cardEntrance {
+      from { opacity: 0; transform: translateY(24px) scale(0.97); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    /* ─── TABS ─── */
+    .auth-tabs {
+      display: flex;
+      background: #f0f4f8;
+      border-radius: 12px;
+      padding: 4px;
+      margin-bottom: 36px;
+      position: relative;
+    }
+    .tab-slider {
+      position: absolute;
+      top: 4px; bottom: 4px;
+      width: calc(50% - 4px);
+      background: var(--water-deep);
+      border-radius: 9px;
+      transition: transform var(--transition);
+      box-shadow: 0 2px 8px rgba(13,79,110,0.3);
+    }
+    .tab-slider.right { transform: translateX(calc(100% + 4px)); }
+
+    .tab-btn {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      background: transparent;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: 9px;
+      transition: color var(--transition);
+      position: relative; z-index: 1;
+      color: var(--ink-muted);
+    }
+    .tab-btn.active { color: var(--white); }
+
+    /* ─── FORM ─── */
+    .auth-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 28px;
+      font-weight: 600;
+      color: var(--ink);
+      margin-bottom: 6px;
+    }
+    .auth-subtitle {
+      font-size: 13px;
+      color: var(--ink-muted);
+      margin-bottom: 28px;
+    }
+
+    .form-panel { display: none; }
+    .form-panel.active { display: block; animation: fadeSlideUp 0.35s ease both; }
+
+    @keyframes fadeSlideUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    .form-row { display: flex; gap: 12px; }
+    .form-row .field-group { flex: 1; }
+
+    .field-group { margin-bottom: 16px; }
+    .field-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ink-soft);
+      margin-bottom: 7px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .field-wrap { position: relative; }
+    .field-icon {
+      position: absolute;
+      left: 14px; top: 50%;
+      transform: translateY(-50%);
+      font-size: 16px;
+      pointer-events: none;
+      opacity: 0.5;
+      transition: opacity var(--transition);
+    }
+
+    .field-input {
+      width: 100%;
+      padding: 12px 14px 12px 40px;
+      border: 1.5px solid #e2e8f0;
+      border-radius: var(--radius-sm);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      color: var(--ink);
+      background: #fafcff;
+      transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
+      outline: none;
+    }
+    .field-input:focus {
+      border-color: var(--water-mid);
+      background: var(--white);
+      box-shadow: 0 0 0 4px rgba(43,165,212,0.1);
+    }
+    .field-input:focus + .field-icon { opacity: 1; }
+    .field-input.error { border-color: var(--danger); box-shadow: 0 0 0 4px rgba(224,82,82,0.1); }
+    .field-input.success-field { border-color: var(--success); }
+
+    /* Password toggle */
+    .pwd-toggle {
+      position: absolute;
+      right: 12px; top: 50%;
+      transform: translateY(-50%);
+      background: none; border: none;
+      cursor: pointer; font-size: 16px;
+      color: var(--ink-muted);
+      transition: color var(--transition);
+      padding: 4px;
+    }
+    .pwd-toggle:hover { color: var(--water); }
+
+    /* Error message */
+    .field-error {
+      font-size: 11px;
+      color: var(--danger);
+      margin-top: 5px;
+      display: none;
+      align-items: center;
+      gap: 4px;
+    }
+    .field-error.show { display: flex; animation: fadeSlideUp 0.2s ease; }
+
+    /* Password strength */
+    .pwd-strength {
+      margin-top: 8px;
+      display: none;
+    }
+    .pwd-strength.show { display: block; }
+    .strength-bars {
+      display: flex; gap: 4px; margin-bottom: 4px;
+    }
+    .strength-bar {
+      height: 3px; flex: 1; border-radius: 2px;
+      background: #e2e8f0;
+      transition: background 0.3s ease;
+    }
+    .strength-bar.fill-weak    { background: var(--danger); }
+    .strength-bar.fill-fair    { background: var(--warning); }
+    .strength-bar.fill-good    { background: #3498db; }
+    .strength-bar.fill-strong  { background: var(--success); }
+    .strength-label {
+      font-size: 11px;
+      color: var(--ink-muted);
+    }
+
+    /* Role selector */
+    .role-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .role-option { display: none; }
+    .role-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border: 1.5px solid #e2e8f0;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--ink-muted);
+      transition: all var(--transition);
+      background: #fafcff;
+    }
+    .role-label:hover { border-color: var(--water-mid); color: var(--ink); }
+    .role-option:checked + .role-label {
+      border-color: var(--water-deep);
+      background: rgba(13,79,110,0.05);
+      color: var(--water-deep);
+      font-weight: 500;
+    }
+    .role-icon { font-size: 18px; }
+
+    /* Checkbox */
+    .check-row {
+      display: flex; align-items: flex-start; gap: 10px;
+      margin-bottom: 20px;
+    }
+    .custom-check {
+      width: 18px; height: 18px; flex-shrink: 0;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 5px;
+      cursor: pointer;
+      appearance: none;
+      background: #fafcff;
+      transition: all var(--transition);
+      position: relative; margin-top: 1px;
+    }
+    .custom-check:checked {
+      background: var(--water-deep);
+      border-color: var(--water-deep);
+    }
+    .custom-check:checked::after {
+      content: '✓';
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      color: white; font-size: 11px; font-weight: 700;
+    }
+    .check-text { font-size: 12px; color: var(--ink-muted); line-height: 1.5; }
+    .check-text a { color: var(--water); text-decoration: none; }
+    .check-text a:hover { text-decoration: underline; }
+
+    /* ─── SUBMIT BUTTON ─── */
+    .btn-submit {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, var(--water-deep) 0%, var(--water) 100%);
+      color: var(--white);
+      border: none;
+      border-radius: var(--radius-sm);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      letter-spacing: 0.3px;
+      transition: all var(--transition);
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(13,79,110,0.35);
+    }
+    .btn-submit::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(135deg, var(--water) 0%, var(--water-mid) 100%);
+      opacity: 0;
+      transition: opacity var(--transition);
+    }
+    .btn-submit:hover::before { opacity: 1; }
+    .btn-submit:hover { transform: translateY(-1px); box-shadow: 0 8px 28px rgba(13,79,110,0.45); }
+    .btn-submit:active { transform: translateY(0); }
+    .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .btn-submit span { position: relative; z-index: 1; }
+
+    /* Loading spinner in button */
+    .btn-spinner {
+      display: none;
+      width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .btn-submit.loading .btn-text { display: none; }
+    .btn-submit.loading .btn-spinner { display: block; }
+
+    /* ─── DIVIDER ─── */
+    .divider {
+      display: flex; align-items: center; gap: 12px;
+      margin: 20px 0;
+      color: #cbd5e0; font-size: 12px;
+    }
+    .divider::before, .divider::after {
+      content: ''; flex: 1; height: 1px; background: #e2e8f0;
+    }
+
+    /* ─── OAUTH BUTTONS ─── */
+    .oauth-row { display: flex; gap: 10px; }
+    .btn-oauth {
+      flex: 1;
+      padding: 11px;
+      border: 1.5px solid #e2e8f0;
+      border-radius: var(--radius-sm);
+      background: white;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--ink);
+      transition: all var(--transition);
+    }
+    .btn-oauth:hover { border-color: var(--water-mid); background: var(--water-pale); transform: translateY(-1px); }
+
+    /* ─── TOAST NOTIFICATION ─── */
+    #toast-container {
+      position: fixed;
+      top: 24px; right: 24px;
+      z-index: 9999;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .toast {
+      background: var(--ink);
+      color: white;
+      padding: 14px 20px;
+      border-radius: 12px;
+      font-size: 13px;
+      display: flex; align-items: center; gap: 10px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      animation: toastIn 0.35s cubic-bezier(0.2,0.8,0.2,1) both;
+      min-width: 280px;
+      border-left: 4px solid var(--water-mid);
+    }
+    .toast.toast-success { border-left-color: var(--success); }
+    .toast.toast-error   { border-left-color: var(--danger); }
+    .toast.toast-warning { border-left-color: var(--warning); }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateX(40px); }
+      to   { opacity: 1; transform: none; }
+    }
+    @keyframes toastOut {
+      to { opacity: 0; transform: translateX(40px); }
+    }
+
+    /* ─── DASHBOARD ─── */
+    #dashboard-view {
+      display: none;
+      position: fixed; inset: 0;
+      z-index: 100;
+      background: #f0f5f9;
+      overflow-y: auto;
+      animation: fadeSlideUp 0.4s ease both;
+    }
+
+    .dash-nav {
+      background: var(--ink);
+      padding: 0 32px;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 64px;
+      position: sticky; top: 0; z-index: 10;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.3);
+    }
+    .dash-brand {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 22px; font-weight: 700;
+      color: white;
+    }
+    .dash-brand span { color: var(--water-glow); }
+
+    .nav-links {
+      display: flex; gap: 4px; align-items: center;
+    }
+    .nav-link {
+      padding: 8px 16px;
+      color: rgba(255,255,255,0.6);
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px; font-weight: 500;
+      transition: all var(--transition);
+      border: none; background: transparent;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .nav-link:hover, .nav-link.active { color: white; background: rgba(255,255,255,0.1); }
+
+    .nav-user {
+      display: flex; align-items: center; gap: 12px;
+    }
+    .user-avatar {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, var(--water-mid), var(--water-glow));
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 600; color: white;
+    }
+    .user-name { font-size: 13px; color: rgba(255,255,255,0.8); }
+    .btn-logout {
+      padding: 8px 16px;
+      background: rgba(224,82,82,0.15);
+      border: 1px solid rgba(224,82,82,0.3);
+      color: #ff8080;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12px; font-weight: 500;
+      transition: all var(--transition);
+      font-family: 'DM Sans', sans-serif;
+    }
+    .btn-logout:hover { background: rgba(224,82,82,0.25); }
+
+    .dash-body { padding: 32px; max-width: 1200px; margin: 0 auto; }
+
+    .dash-welcome {
+      margin-bottom: 32px;
+    }
+    .dash-welcome h1 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 32px; font-weight: 600;
+      color: var(--ink);
+    }
+    .dash-welcome p { color: var(--ink-muted); margin-top: 4px; font-size: 14px; }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 20px;
+      margin-bottom: 32px;
+    }
+    .metric-card {
+      background: white;
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: var(--shadow-card);
+      border-top: 3px solid transparent;
+      transition: transform var(--transition);
+    }
+    .metric-card:hover { transform: translateY(-2px); }
+    .metric-card.safe    { border-top-color: var(--success); }
+    .metric-card.danger  { border-top-color: var(--danger); }
+    .metric-card.warning { border-top-color: var(--warning); }
+    .metric-card.info    { border-top-color: var(--water); }
+
+    .metric-icon { font-size: 28px; margin-bottom: 12px; }
+    .metric-value {
+      font-family: 'DM Mono', monospace;
+      font-size: 36px; font-weight: 500;
+      color: var(--ink);
+      line-height: 1;
+    }
+    .metric-label { font-size: 13px; color: var(--ink-muted); margin-top: 6px; }
+
+    .dash-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    .dash-panel {
+      background: white;
+      border-radius: var(--radius);
+      padding: 28px;
+      box-shadow: var(--shadow-card);
+    }
+    .dash-panel h3 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 20px; font-weight: 600;
+      color: var(--ink);
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #f0f4f8;
+    }
+
+    /* Live sensor form in dashboard */
+    .sensor-form .field-input {
+      background: #f8fafc;
+    }
+    .sensor-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .btn-sensor {
+      width: 100%; padding: 12px;
+      background: linear-gradient(135deg, var(--water-deep), var(--water));
+      color: white; border: none; border-radius: var(--radius-sm);
+      font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600;
+      cursor: pointer; margin-top: 16px;
+      transition: all var(--transition);
+    }
+    .btn-sensor:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(13,79,110,0.35); }
+
+    /* Readings list */
+    .readings-list { display: flex; flex-direction: column; gap: 10px; max-height: 340px; overflow-y: auto; }
+    .reading-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px;
+      background: #f8fafc;
+      border-radius: var(--radius-sm);
+      border-left: 4px solid transparent;
+      transition: all var(--transition);
+    }
+    .reading-item.SAFE    { border-left-color: var(--success); }
+    .reading-item.DANGER  { border-left-color: var(--danger); background: #fff5f5; }
+    .reading-item.WARNING { border-left-color: var(--warning); background: #fffbf0; }
+    .reading-info .village { font-size: 13px; font-weight: 500; color: var(--ink); }
+    .reading-info .time    { font-size: 11px; color: var(--ink-muted); margin-top: 2px; }
+    .reading-params { display: flex; gap: 10px; }
+    .param-badge {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      padding: 3px 8px;
+      background: #e8f4fd;
+      color: var(--water-deep);
+      border-radius: 6px;
+    }
+    .status-badge {
+      font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 20px;
+    }
+    .status-badge.SAFE    { background: #e8f8ee; color: #1a8a4a; }
+    .status-badge.DANGER  { background: #fde8e8; color: #c0392b; }
+    .status-badge.WARNING { background: #fef5e4; color: #d68910; }
+
+    .empty-state {
+      text-align: center; padding: 40px;
+      color: var(--ink-muted); font-size: 14px;
+    }
+    .empty-state div { font-size: 32px; margin-bottom: 8px; }
+
+    /* API status indicator */
+    .api-status {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 16px;
+      background: #f8fafc; border-radius: 8px;
+      margin-bottom: 20px; font-size: 13px;
+      color: var(--ink-muted);
+    }
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--ink-muted);
+    }
+    .status-dot.online  { background: var(--success); box-shadow: 0 0 6px var(--success); }
+    .status-dot.offline { background: var(--danger); }
+
+    /* ─── FORGOT PASSWORD MODAL ─── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(10,22,40,0.7);
+      backdrop-filter: blur(6px);
+      z-index: 200;
+      align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: white; border-radius: 20px;
+      padding: 40px; max-width: 400px; width: 90%;
+      animation: cardEntrance 0.35s ease both;
+      box-shadow: var(--shadow-deep);
+    }
+    .modal-box h3 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 24px; margin-bottom: 8px;
+    }
+    .modal-box p { font-size: 13px; color: var(--ink-muted); margin-bottom: 24px; }
+    .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+    .btn-cancel {
+      flex: 1; padding: 12px; border: 1.5px solid #e2e8f0; border-radius: var(--radius-sm);
+      background: white; cursor: pointer; font-family: 'DM Sans', sans-serif;
+      font-size: 14px; color: var(--ink-muted); transition: all var(--transition);
+    }
+    .btn-cancel:hover { border-color: var(--ink-muted); }
+    .btn-send-reset {
+      flex: 1; padding: 12px;
+      background: linear-gradient(135deg, var(--water-deep), var(--water));
+      color: white; border: none; border-radius: var(--radius-sm);
+      font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: all var(--transition);
+    }
+    .btn-send-reset:hover { opacity: 0.9; }
+
+    /* ─── RATE LIMIT INDICATOR ─── */
+    .rate-info {
+      font-size: 11px; color: var(--ink-muted);
+      text-align: center; margin-top: 12px;
+    }
+    .rate-info span { color: var(--water); font-weight: 600; }
+
+    /* ─── RESPONSIVE ─── */
+    @media (max-width: 900px) {
+      .app { flex-direction: column; }
+      .left-panel { width: 100%; padding: 40px 32px 20px; }
+      .right-panel { width: 100%; padding: 0 24px 40px; }
+      .hero-tagline { font-size: 32px; }
+      .dash-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ─── SCROLLBAR ─── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #f0f4f8; }
+    ::-webkit-scrollbar-thumb { background: var(--water-mid); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     BACKGROUND SCENE
+══════════════════════════════════════════ -->
+<div class="bg-scene">
+  <div class="ripple"></div>
+  <div class="ripple"></div>
+  <div class="ripple"></div>
+  <div class="ripple"></div>
+  <div class="geo-overlay"></div>
+  <!-- Particles injected by JS -->
+</div>
+
+<!-- ══════════════════════════════════════════
+     TOAST CONTAINER
+══════════════════════════════════════════ -->
+<div id="toast-container"></div>
+
+<!-- ══════════════════════════════════════════
+     FORGOT PASSWORD MODAL
+══════════════════════════════════════════ -->
+<div class="modal-overlay" id="forgot-modal">
+  <div class="modal-box">
+    <h3>💧 Reset Password</h3>
+    <p>Enter your registered email. We'll send a reset link to your inbox.</p>
+    <div class="field-group">
+      <label class="field-label">Email Address</label>
+      <div class="field-wrap">
+        <input type="email" class="field-input" id="reset-email" placeholder="your@email.com"/>
+        <span class="field-icon">✉️</span>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-send-reset" onclick="sendReset()">Send Reset Link</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     AUTH VIEW
+══════════════════════════════════════════ -->
+<div class="app" id="auth-view">
+
+  <!-- LEFT: Hero Panel -->
+  <div class="left-panel">
+    <div class="brand">
+      <div class="brand-icon">💧</div>
+      <div class="brand-name">Neer<span>Veda</span></div>
+    </div>
+
+    <h1 class="hero-tagline">
+      Water Wisdom<br/>
+      <strong>Saving Lives<br/>in Rural India</strong>
+    </h1>
+
+    <p class="hero-sub">
+      AI & IoT powered early warning system for water-borne diseases.
+      Protecting 92%+ villages in Northeast India through real-time
+      monitoring and community health intelligence.
+    </p>
+
+    <div class="stats-row">
+      <div class="stat-chip">
+        <div class="stat-number">92%+</div>
+        <div class="stat-label">Village Coverage</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-number">4</div>
+        <div class="stat-label">Sensors Tracked</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-number">Real-Time</div>
+        <div class="stat-label">Alerts & Reports</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Auth Card -->
+  <div class="right-panel">
+    <div class="auth-card">
+
+      <!-- Tabs -->
+      <div class="auth-tabs">
+        <div class="tab-slider" id="tab-slider"></div>
+        <button class="tab-btn active" id="tab-login" onclick="switchTab('login')">Sign In</button>
+        <button class="tab-btn" id="tab-register" onclick="switchTab('register')">Register</button>
+      </div>
+
+      <!-- ── LOGIN FORM ── -->
+      <div class="form-panel active" id="panel-login">
+        <h2 class="auth-title">Welcome back</h2>
+        <p class="auth-subtitle">Sign in to your NeerVeda account</p>
+
+        <form id="login-form" novalidate>
+
+          <div class="field-group">
+            <label class="field-label">Email Address</label>
+            <div class="field-wrap">
+              <input type="email" class="field-input" id="login-email"
+                     placeholder="you@example.com" autocomplete="email"
+                     maxlength="254"/>
+              <span class="field-icon">✉️</span>
+            </div>
+            <div class="field-error" id="err-login-email">⚠ Please enter a valid email</div>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">Password</label>
+            <div class="field-wrap">
+              <input type="password" class="field-input" id="login-pwd"
+                     placeholder="Your password" autocomplete="current-password"
+                     maxlength="128"/>
+              <span class="field-icon">🔒</span>
+              <button type="button" class="pwd-toggle" onclick="togglePwd('login-pwd',this)">👁️</button>
+            </div>
+            <div class="field-error" id="err-login-pwd">⚠ Password is required</div>
+          </div>
+
+          <div style="text-align:right; margin-bottom:20px;">
+            <a href="#" style="font-size:12px;color:var(--water);text-decoration:none;"
+               onclick="openModal(); return false;">Forgot password?</a>
+          </div>
+
+          <button type="submit" class="btn-submit" id="btn-login">
+            <div class="btn-spinner"></div>
+            <span class="btn-text">Sign In to NeerVeda</span>
+          </button>
+        </form>
+
+        <div class="divider">or continue with</div>
+        <div class="oauth-row">
+          <button class="btn-oauth" onclick="oauthLogin('google')">
+            <svg width="16" height="16" viewBox="0 0 48 48">
+              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+              <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+              <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+              <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+            </svg>
+            Google
+          </button>
+          <button class="btn-oauth" onclick="oauthLogin('github')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+            </svg>
+            GitHub
+          </button>
+        </div>
+
+        <div class="rate-info">
+          Attempts remaining: <span id="attempts-left">5</span> / 5
+        </div>
+      </div>
+
+      <!-- ── REGISTER FORM ── -->
+      <div class="form-panel" id="panel-register">
+        <h2 class="auth-title">Join NeerVeda</h2>
+        <p class="auth-subtitle">Create your community health account</p>
+
+        <form id="register-form" novalidate>
+
+          <div class="form-row">
+            <div class="field-group">
+              <label class="field-label">First Name</label>
+              <div class="field-wrap">
+                <input type="text" class="field-input" id="reg-fname"
+                       placeholder="Riya" autocomplete="given-name" maxlength="50"/>
+                <span class="field-icon">👤</span>
+              </div>
+              <div class="field-error" id="err-fname">⚠ Required</div>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Last Name</label>
+              <div class="field-wrap">
+                <input type="text" class="field-input" id="reg-lname"
+                       placeholder="Devi" autocomplete="family-name" maxlength="50"/>
+                <span class="field-icon">👤</span>
+              </div>
+              <div class="field-error" id="err-lname">⚠ Required</div>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">Email Address</label>
+            <div class="field-wrap">
+              <input type="email" class="field-input" id="reg-email"
+                     placeholder="you@example.com" autocomplete="email" maxlength="254"/>
+              <span class="field-icon">✉️</span>
+            </div>
+            <div class="field-error" id="err-reg-email">⚠ Enter a valid email</div>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">Phone Number</label>
+            <div class="field-wrap">
+              <input type="tel" class="field-input" id="reg-phone"
+                     placeholder="+91 9876543210" autocomplete="tel" maxlength="15"/>
+              <span class="field-icon">📱</span>
+            </div>
+            <div class="field-error" id="err-phone">⚠ Enter a valid phone number</div>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">Your Role</label>
+            <div class="role-grid">
+              <input type="radio" name="role" id="role-asha" value="ASHA_WORKER" class="role-option" checked/>
+              <label class="role-label" for="role-asha"><span class="role-icon">🏥</span> ASHA Worker</label>
+
+              <input type="radio" name="role" id="role-vol" value="VOLUNTEER" class="role-option"/>
+              <label class="role-label" for="role-vol"><span class="role-icon">🙋</span> Volunteer</label>
+
+              <input type="radio" name="role" id="role-clinic" value="CLINIC" class="role-option"/>
+              <label class="role-label" for="role-clinic"><span class="role-icon">🏨</span> Clinic</label>
+
+              <input type="radio" name="role" id="role-officer" value="HEALTH_OFFICER" class="role-option"/>
+              <label class="role-label" for="role-officer"><span class="role-icon">🏛️</span> Health Officer</label>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">Password</label>
+            <div class="field-wrap">
+              <input type="password" class="field-input" id="reg-pwd"
+                     placeholder="Min 8 chars, 1 uppercase, 1 number" maxlength="128"
+                     autocomplete="new-password" oninput="checkStrength(this.value)"/>
+              <span class="field-icon">🔒</span>
+              <button type="button" class="pwd-toggle" onclick="togglePwd('reg-pwd',this)">👁️</button>
+            </div>
+            <div class="pwd-strength" id="pwd-strength">
+              <div class="strength-bars">
+                <div class="strength-bar" id="bar1"></div>
+                <div class="strength-bar" id="bar2"></div>
+                <div class="strength-bar" id="bar3"></div>
+                <div class="strength-bar" id="bar4"></div>
+              </div>
+              <div class="strength-label" id="strength-label">Weak</div>
+            </div>
+            <div class="field-error" id="err-reg-pwd">⚠ Password must be 8+ chars with uppercase & number</div>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">Confirm Password</label>
+            <div class="field-wrap">
+              <input type="password" class="field-input" id="reg-cpwd"
+                     placeholder="Repeat your password" maxlength="128"
+                     autocomplete="new-password"/>
+              <span class="field-icon">🔒</span>
+              <button type="button" class="pwd-toggle" onclick="togglePwd('reg-cpwd',this)">👁️</button>
+            </div>
+            <div class="field-error" id="err-cpwd">⚠ Passwords do not match</div>
+          </div>
+
+          <div class="check-row">
+            <input type="checkbox" class="custom-check" id="terms-check"/>
+            <label class="check-text" for="terms-check">
+              I agree to NeerVeda's <a href="#">Terms of Service</a> and
+              <a href="#">Privacy Policy</a>. I understand my health data will
+              be used for community disease surveillance.
+            </label>
+          </div>
+
+          <button type="submit" class="btn-submit" id="btn-register">
+            <div class="btn-spinner"></div>
+            <span class="btn-text">Create Account</span>
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     DASHBOARD VIEW
+══════════════════════════════════════════ -->
+<div id="dashboard-view">
+
+  <!-- Nav -->
+  <nav class="dash-nav">
+    <div class="dash-brand">Neer<span>Veda</span></div>
+    <div class="nav-links">
+      <button class="nav-link active">🌊 Dashboard</button>
+      <button class="nav-link">🗺️ Map</button>
+      <button class="nav-link">📋 Reports</button>
+      <button class="nav-link">🚨 Alerts</button>
+    </div>
+    <div class="nav-user">
+      <div class="user-avatar" id="nav-avatar">R</div>
+      <span class="user-name" id="nav-username">User</span>
+      <button class="btn-logout" onclick="logout()">Sign Out</button>
+    </div>
+  </nav>
+
+  <!-- Body -->
+  <div class="dash-body">
+    <div class="dash-welcome">
+      <h1>Good day, <span id="dash-name">User</span> 👋</h1>
+      <p>NeerVeda Water Safety Dashboard — Real-time monitoring for Northeast India</p>
+    </div>
+
+    <!-- Metrics -->
+    <div class="metrics-grid">
+      <div class="metric-card safe">
+        <div class="metric-icon">✅</div>
+        <div class="metric-value" id="metric-safe">0</div>
+        <div class="metric-label">Safe Readings Today</div>
+      </div>
+      <div class="metric-card danger">
+        <div class="metric-icon">🚨</div>
+        <div class="metric-value" id="metric-danger">0</div>
+        <div class="metric-label">Danger Alerts</div>
+      </div>
+      <div class="metric-card warning">
+        <div class="metric-icon">⚠️</div>
+        <div class="metric-value" id="metric-warning">0</div>
+        <div class="metric-label">Warnings</div>
+      </div>
+      <div class="metric-card info">
+        <div class="metric-icon">📊</div>
+        <div class="metric-value" id="metric-total">0</div>
+        <div class="metric-label">Total Readings</div>
+      </div>
+    </div>
+
+    <!-- Main grid -->
+    <div class="dash-grid">
+
+      <!-- Submit sensor reading -->
+      <div class="dash-panel">
+        <h3>📡 Submit Sensor Reading</h3>
+
+        <div class="api-status">
+          <div class="status-dot" id="api-dot"></div>
+          <span id="api-status-text">Checking API...</span>
+        </div>
+
+        <form class="sensor-form" id="sensor-form">
+          <div class="field-group">
+            <label class="field-label">Village Name</label>
+            <div class="field-wrap">
+              <input type="text" class="field-input" id="s-village" placeholder="e.g. Dimapur Village"/>
+              <span class="field-icon">🏘️</span>
+            </div>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Village ID</label>
+            <div class="field-wrap">
+              <input type="text" class="field-input" id="s-vid" placeholder="e.g. VIL001"/>
+              <span class="field-icon">🔖</span>
+            </div>
+          </div>
+          <div class="sensor-row">
+            <div class="field-group">
+              <label class="field-label">pH Level</label>
+              <div class="field-wrap">
+                <input type="number" class="field-input" id="s-ph" placeholder="7.2" step="0.1" min="0" max="14"/>
+                <span class="field-icon">🧪</span>
+              </div>
+            </div>
+            <div class="field-group">
+              <label class="field-label">TDS (ppm)</label>
+              <div class="field-wrap">
+                <input type="number" class="field-input" id="s-tds" placeholder="250" min="0"/>
+                <span class="field-icon">💊</span>
+              </div>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Turbidity (NTU)</label>
+              <div class="field-wrap">
+                <input type="number" class="field-input" id="s-turb" placeholder="2.0" step="0.1" min="0"/>
+                <span class="field-icon">🌊</span>
+              </div>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Temp (°C)</label>
+              <div class="field-wrap">
+                <input type="number" class="field-input" id="s-temp" placeholder="25" min="0" max="100"/>
+                <span class="field-icon">🌡️</span>
+              </div>
+            </div>
+          </div>
+          <button type="submit" class="btn-sensor">📤 Submit Reading to API</button>
+        </form>
+      </div>
+
+      <!-- Live readings -->
+      <div class="dash-panel">
+        <h3>📋 Live Water Readings</h3>
+        <div class="readings-list" id="readings-list">
+          <div class="empty-state">
+            <div>💧</div>
+            <div>No readings yet.<br/>Submit your first sensor reading!</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     JAVASCRIPT — Auth, Security, API
+══════════════════════════════════════════ -->
+<script>
+// ─────────────────────────────────────────
+// SECURITY CONFIG
+// ─────────────────────────────────────────
+const SECURITY = {
+  MAX_LOGIN_ATTEMPTS : 5,
+  LOCKOUT_DURATION   : 15 * 60 * 1000,  // 15 minutes
+  SESSION_DURATION   : 8 * 60 * 60 * 1000, // 8 hours
+  TOKEN_KEY          : 'nv_auth_token',
+  USER_KEY           : 'nv_user',
+  LOCK_KEY           : 'nv_lockout',
+  ATTEMPT_KEY        : 'nv_attempts',
+};
+
+const API_BASE = 'http://localhost:8080/api/v1';
+
+// ─────────────────────────────────────────
+// SANITIZE — prevent XSS
+// ─────────────────────────────────────────
+function sanitize(str) {
+  const div = document.createElement('div');
+  div.appendChild(document.createTextNode(str));
+  return div.innerHTML;
+}
+
+// ─────────────────────────────────────────
+// CSRF TOKEN (simulated for SPA)
+// ─────────────────────────────────────────
+function generateCSRF() {
+  const token = crypto.getRandomValues(new Uint8Array(32));
+  return Array.from(token, b => b.toString(16).padStart(2,'0')).join('');
+}
+let csrfToken = generateCSRF();
+
+// ─────────────────────────────────────────
+// RATE LIMITING
+// ─────────────────────────────────────────
+function getAttempts() {
+  return parseInt(localStorage.getItem(SECURITY.ATTEMPT_KEY) || '0');
+}
+function incrementAttempts() {
+  const a = getAttempts() + 1;
+  localStorage.setItem(SECURITY.ATTEMPT_KEY, a);
+  if (a >= SECURITY.MAX_LOGIN_ATTEMPTS) {
+    localStorage.setItem(SECURITY.LOCK_KEY, Date.now());
+  }
+  document.getElementById('attempts-left').textContent = Math.max(0, SECURITY.MAX_LOGIN_ATTEMPTS - a);
+}
+function resetAttempts() {
+  localStorage.removeItem(SECURITY.ATTEMPT_KEY);
+  localStorage.removeItem(SECURITY.LOCK_KEY);
+  document.getElementById('attempts-left').textContent = SECURITY.MAX_LOGIN_ATTEMPTS;
+}
+function isLockedOut() {
+  const lockTime = localStorage.getItem(SECURITY.LOCK_KEY);
+  if (!lockTime) return false;
+  return (Date.now() - parseInt(lockTime)) < SECURITY.LOCKOUT_DURATION;
+}
+function getLockoutRemaining() {
+  const lockTime = parseInt(localStorage.getItem(SECURITY.LOCK_KEY) || '0');
+  const remaining = Math.ceil((SECURITY.LOCKOUT_DURATION - (Date.now() - lockTime)) / 60000);
+  return remaining;
+}
+
+// ─────────────────────────────────────────
+// TOKEN MANAGEMENT
+// ─────────────────────────────────────────
+function saveSession(user, token) {
+  const session = {
+    user,
+    token,
+    expiry: Date.now() + SECURITY.SESSION_DURATION,
+    csrf: csrfToken,
+  };
+  // In production use HttpOnly cookies via backend
+  // For demo, using sessionStorage (cleared on tab close)
+  sessionStorage.setItem(SECURITY.TOKEN_KEY, JSON.stringify(session));
+}
+
+function getSession() {
+  try {
+    const raw = sessionStorage.getItem(SECURITY.TOKEN_KEY);
+    if (!raw) return null;
+    const session = JSON.parse(raw);
+    if (Date.now() > session.expiry) {
+      sessionStorage.removeItem(SECURITY.TOKEN_KEY);
+      return null;
+    }
+    return session;
+  } catch { return null; }
+}
+
+function clearSession() {
+  sessionStorage.removeItem(SECURITY.TOKEN_KEY);
+}
+
+// ─────────────────────────────────────────
+// VALIDATION HELPERS
+// ─────────────────────────────────────────
+const EMAIL_RE  = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
+const PHONE_RE  = /^[+]?[\d\s\-]{10,15}$/;
+// Strong password: 8+ chars, 1 uppercase, 1 lowercase, 1 digit, 1 special
+const STRONG_PWD = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&_\-#])[A-Za-z\d@$!%*?&_\-#]{8,}$/;
+
+function showError(id, show) {
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('show', show);
+}
+function setFieldState(inputId, isError) {
+  const el = document.getElementById(inputId);
+  if (!el) return;
+  el.classList.toggle('error', isError);
+  el.classList.toggle('success-field', !isError && el.value.length > 0);
+}
+
+// ─────────────────────────────────────────
+// PASSWORD STRENGTH
+// ─────────────────────────────────────────
+function checkStrength(pwd) {
+  const el = document.getElementById('pwd-strength');
+  if (!pwd) { el.classList.remove('show'); return; }
+  el.classList.add('show');
+
+  let score = 0;
+  if (pwd.length >= 8)  score++;
+  if (/[A-Z]/.test(pwd)) score++;
+  if (/\d/.test(pwd))   score++;
+  if (/[@$!%*?&_\-#]/.test(pwd)) score++;
+
+  const labels = ['', 'Weak', 'Fair', 'Good', 'Strong'];
+  const classes = ['', 'fill-weak', 'fill-fair', 'fill-good', 'fill-strong'];
+
+  for (let i = 1; i <= 4; i++) {
+    const bar = document.getElementById('bar' + i);
+    bar.className = 'strength-bar' + (i <= score ? ' ' + classes[score] : '');
+  }
+  document.getElementById('strength-label').textContent = labels[score] || 'Weak';
+}
+
+// ─────────────────────────────────────────
+// PASSWORD TOGGLE
+// ─────────────────────────────────────────
+function togglePwd(inputId, btn) {
+  const input = document.getElementById(inputId);
+  const isText = input.type === 'text';
+  input.type = isText ? 'password' : 'text';
+  btn.textContent = isText ? '👁️' : '🙈';
+}
+
+// ─────────────────────────────────────────
+// TAB SWITCH
+// ─────────────────────────────────────────
+function switchTab(tab) {
+  const loginPanel = document.getElementById('panel-login');
+  const regPanel   = document.getElementById('panel-register');
+  const slider     = document.getElementById('tab-slider');
+  const btnLogin   = document.getElementById('tab-login');
+  const btnReg     = document.getElementById('tab-register');
+
+  if (tab === 'login') {
+    loginPanel.classList.add('active');
+    regPanel.classList.remove('active');
+    slider.classList.remove('right');
+    btnLogin.classList.add('active');
+    btnReg.classList.remove('active');
+  } else {
+    regPanel.classList.add('active');
+    loginPanel.classList.remove('active');
+    slider.classList.add('right');
+    btnReg.classList.add('active');
+    btnLogin.classList.remove('active');
+  }
+}
+
+// ─────────────────────────────────────────
+// TOAST NOTIFICATIONS
+// ─────────────────────────────────────────
+function toast(message, type = 'info', duration = 4000) {
+  const icons = { success: '✅', error: '❌', warning: '⚠️', info: '💧' };
+  const container = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.innerHTML = `<span>${icons[type]}</span><span>${sanitize(message)}</span>`;
+  container.appendChild(el);
+  setTimeout(() => {
+    el.style.animation = 'toastOut 0.3s ease forwards';
+    setTimeout(() => el.remove(), 300);
+  }, duration);
+}
+
+// ─────────────────────────────────────────
+// SIMULATE BACKEND AUTH (replace with real API)
+// ─────────────────────────────────────────
+// In production: POST to /api/v1/auth/login and /api/v1/auth/register
+// Backend should return JWT token in HttpOnly cookie
+
+const MOCK_USERS = []; // In-memory store for demo
+
+async function apiLogin(email, password) {
+  // Simulate network delay
+  await new Promise(r => setTimeout(r, 1200));
+
+  const user = MOCK_USERS.find(u =>
+    u.email.toLowerCase() === email.toLowerCase() && u.password === hashPassword(password)
+  );
+  if (!user) throw new Error('Invalid email or password');
+
+  const token = 'nv_' + crypto.getRandomValues(new Uint8Array(24))
+                         .reduce((a,b) => a + b.toString(16).padStart(2,'0'), '');
+  return { user: { name: user.name, email: user.email, role: user.role }, token };
+}
+
+async function apiRegister(data) {
+  await new Promise(r => setTimeout(r, 1400));
+
+  if (MOCK_USERS.find(u => u.email.toLowerCase() === data.email.toLowerCase())) {
+    throw new Error('Email already registered');
+  }
+
+  const user = {
+    name: sanitize(data.firstName + ' ' + data.lastName),
+    email: sanitize(data.email),
+    role: data.role,
+    password: hashPassword(data.password),
+    createdAt: new Date().toISOString(),
+  };
+  MOCK_USERS.push(user);
+
+  const token = 'nv_' + crypto.getRandomValues(new Uint8Array(24))
+                         .reduce((a,b) => a + b.toString(16).padStart(2,'0'), '');
+  return { user: { name: user.name, email: user.email, role: user.role }, token };
+}
+
+// Simple hash simulation (use bcrypt on real backend)
+function hashPassword(pwd) {
+  let hash = 0;
+  for (let i = 0; i < pwd.length; i++) {
+    hash = ((hash << 5) - hash) + pwd.charCodeAt(i);
+    hash |= 0;
+  }
+  return 'h_' + Math.abs(hash).toString(36) + '_' + pwd.length;
+}
+
+// ─────────────────────────────────────────
+// LOGIN FORM SUBMIT
+// ─────────────────────────────────────────
+document.getElementById('login-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+
+  // Rate limiting check
+  if (isLockedOut()) {
+    toast(`Too many attempts. Try again in ${getLockoutRemaining()} minutes.`, 'error', 6000);
+    return;
+  }
+
+  const email = document.getElementById('login-email').value.trim();
+  const pwd   = document.getElementById('login-pwd').value;
+
+  // Validate
+  let valid = true;
+  if (!EMAIL_RE.test(email)) { showError('err-login-email', true); setFieldState('login-email', true); valid = false; }
+  else { showError('err-login-email', false); setFieldState('login-email', false); }
+  if (!pwd) { showError('err-login-pwd', true); setFieldState('login-pwd', true); valid = false; }
+  else { showError('err-login-pwd', false); setFieldState('login-pwd', false); }
+  if (!valid) return;
+
+  // Loading state
+  const btn = document.getElementById('btn-login');
+  btn.classList.add('loading'); btn.disabled = true;
+
+  try {
+    const { user, token } = await apiLogin(email, pwd);
+    saveSession(user, token);
+    resetAttempts();
+    toast(`Welcome back, ${user.name}! 💧`, 'success');
+    setTimeout(() => showDashboard(user), 800);
+  } catch (err) {
+    incrementAttempts();
+    const remaining = SECURITY.MAX_LOGIN_ATTEMPTS - getAttempts();
+    toast(err.message + (remaining > 0 ? ` (${remaining} attempts left)` : ' — Account locked!'), 'error');
+    document.getElementById('login-pwd').value = '';
+  } finally {
+    btn.classList.remove('loading'); btn.disabled = false;
+  }
+});
+
+// ─────────────────────────────────────────
+// REGISTER FORM SUBMIT
+// ─────────────────────────────────────────
+document.getElementById('register-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+
+  const fname = document.getElementById('reg-fname').value.trim();
+  const lname = document.getElementById('reg-lname').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const phone = document.getElementById('reg-phone').value.trim();
+  const role  = document.querySelector('input[name="role"]:checked')?.value;
+  const pwd   = document.getElementById('reg-pwd').value;
+  const cpwd  = document.getElementById('reg-cpwd').value;
+  const terms = document.getElementById('terms-check').checked;
+
+  let valid = true;
+
+  // First name
+  if (!fname || fname.length < 2) { showError('err-fname', true); setFieldState('reg-fname', true); valid = false; }
+  else { showError('err-fname', false); setFieldState('reg-fname', false); }
+
+  // Last name
+  if (!lname || lname.length < 2) { showError('err-lname', true); setFieldState('reg-lname', true); valid = false; }
+  else { showError('err-lname', false); setFieldState('reg-lname', false); }
+
+  // Email
+  if (!EMAIL_RE.test(email)) { showError('err-reg-email', true); setFieldState('reg-email', true); valid = false; }
+  else { showError('err-reg-email', false); setFieldState('reg-email', false); }
+
+  // Phone
+  if (!PHONE_RE.test(phone)) { showError('err-phone', true); setFieldState('reg-phone', true); valid = false; }
+  else { showError('err-phone', false); setFieldState('reg-phone', false); }
+
+  // Password strength
+  if (!STRONG_PWD.test(pwd)) { showError('err-reg-pwd', true); setFieldState('reg-pwd', true); valid = false; }
+  else { showError('err-reg-pwd', false); setFieldState('reg-pwd', false); }
+
+  // Confirm password
+  if (pwd !== cpwd) { showError('err-cpwd', true); setFieldState('reg-cpwd', true); valid = false; }
+  else { showError('err-cpwd', false); setFieldState('reg-cpwd', false); }
+
+  // Terms
+  if (!terms) { toast('Please accept the Terms of Service to continue.', 'warning'); valid = false; }
+
+  if (!valid) return;
+
+  const btn = document.getElementById('btn-register');
+  btn.classList.add('loading'); btn.disabled = true;
+
+  try {
+    const { user, token } = await apiRegister({ firstName: fname, lastName: lname, email, phone, role, password: pwd });
+    saveSession(user, token);
+    toast(`Account created! Welcome, ${user.name} 🎉`, 'success');
+    setTimeout(() => showDashboard(user), 800);
+  } catch (err) {
+    toast(err.message, 'error');
+  } finally {
+    btn.classList.remove('loading'); btn.disabled = false;
+  }
+});
+
+// ─────────────────────────────────────────
+// OAUTH (Placeholder — wire to backend)
+// ─────────────────────────────────────────
+function oauthLogin(provider) {
+  toast(`${provider.charAt(0).toUpperCase() + provider.slice(1)} OAuth — connect to backend endpoint /api/v1/auth/${provider}`, 'info');
+}
+
+// ─────────────────────────────────────────
+// FORGOT PASSWORD MODAL
+// ─────────────────────────────────────────
+function openModal()  { document.getElementById('forgot-modal').classList.add('open'); }
+function closeModal() { document.getElementById('forgot-modal').classList.remove('open'); }
+async function sendReset() {
+  const email = document.getElementById('reset-email').value.trim();
+  if (!EMAIL_RE.test(email)) { toast('Enter a valid email address', 'error'); return; }
+  await new Promise(r => setTimeout(r, 1000));
+  toast(`Password reset link sent to ${email}`, 'success');
+  closeModal();
+}
+document.getElementById('forgot-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+// ─────────────────────────────────────────
+// DASHBOARD
+// ─────────────────────────────────────────
+function showDashboard(user) {
+  document.getElementById('auth-view').style.display = 'none';
+  document.getElementById('dashboard-view').style.display = 'block';
+
+  const firstName = user.name.split(' ')[0];
+  document.getElementById('dash-name').textContent = firstName;
+  document.getElementById('nav-username').textContent = user.name;
+  document.getElementById('nav-avatar').textContent = firstName.charAt(0).toUpperCase();
+
+  checkApiHealth();
+  loadReadings();
+}
+
+function logout() {
+  clearSession();
+  document.getElementById('dashboard-view').style.display = 'none';
+  document.getElementById('auth-view').style.display = 'flex';
+  toast('Signed out successfully', 'info');
+}
+
+// ─────────────────────────────────────────
+// API HEALTH CHECK
+// ─────────────────────────────────────────
+async function checkApiHealth() {
+  const dot  = document.getElementById('api-dot');
+  const text = document.getElementById('api-status-text');
+  try {
+    const res = await fetch(`${API_BASE}/water/health`, {
+      headers: { 'X-CSRF-Token': csrfToken },
+      signal: AbortSignal.timeout(3000),
+    });
+    if (res.ok) {
+      dot.className = 'status-dot online';
+      text.textContent = 'Backend API online — localhost:8080';
+    } else throw new Error();
+  } catch {
+    dot.className = 'status-dot offline';
+    text.textContent = 'Backend offline — start Spring Boot first';
+  }
+}
+
+// ─────────────────────────────────────────
+// SENSOR FORM — POST to Spring Boot
+// ─────────────────────────────────────────
+const readings = []; // local cache
+
+document.getElementById('sensor-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+
+  const village = document.getElementById('s-village').value.trim();
+  const vid     = document.getElementById('s-vid').value.trim();
+  const ph      = parseFloat(document.getElementById('s-ph').value);
+  const tds     = parseFloat(document.getElementById('s-tds').value);
+  const turb    = parseFloat(document.getElementById('s-turb').value);
+  const temp    = parseFloat(document.getElementById('s-temp').value);
+
+  if (!village || !vid || isNaN(ph) || isNaN(tds) || isNaN(turb) || isNaN(temp)) {
+    toast('Please fill all sensor fields', 'warning'); return;
+  }
+
+  const payload = {
+    villageId: sanitize(vid),
+    villageName: sanitize(village),
+    district: 'Northeast India',
+    state: 'Nagaland',
+    latitude: 25.9022,
+    longitude: 93.7234,
+    ph, tds, turbidity: turb, temperature: temp,
+    deviceId: 'ESP32-WEB',
+  };
+
+  const btn = this.querySelector('.btn-sensor');
+  btn.textContent = '⏳ Submitting...'; btn.disabled = true;
+
+  try {
+    const session = getSession();
+    const res = await fetch(`${API_BASE}/water/reading`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': csrfToken,
+        ...(session ? { 'Authorization': `Bearer ${session.token}` } : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      readings.unshift(data.data);
+      renderReadings();
+      updateMetrics();
+      toast(`Reading submitted! Status: ${data.data.status}`,
+            data.data.status === 'SAFE' ? 'success' : 'error');
+      this.reset();
+    } else {
+      // Backend offline — use local simulation
+      throw new Error('offline');
+    }
+  } catch {
+    // Simulate locally if backend not running
+    const simulated = simulateAnalysis(payload);
+    readings.unshift(simulated);
+    renderReadings();
+    updateMetrics();
+    toast(`[Offline Mode] Status: ${simulated.status}`,
+          simulated.status === 'SAFE' ? 'success' : 'warning');
+    this.reset();
+  } finally {
+    btn.textContent = '📤 Submit Reading to API'; btn.disabled = false;
+  }
+});
+
+// ─────────────────────────────────────────
+// LOCAL SIMULATION (mirrors Spring Boot logic)
+// ─────────────────────────────────────────
+function simulateAnalysis(d) {
+  let status = 'SAFE', alerts = [];
+  if (d.ph < 6.5 || d.ph > 8.5)     { status = 'DANGER';  alerts.push('pH'); }
+  if (d.tds > 500)                   { status = 'DANGER';  alerts.push('TDS'); }
+  if (d.turbidity > 5)               { status = 'DANGER';  alerts.push('Turbidity'); }
+  if (d.temperature > 35 && status === 'SAFE') { status = 'WARNING'; alerts.push('Temperature'); }
+  return {
+    ...d,
+    id: crypto.randomUUID(),
+    status,
+    alertParameter: alerts.join(', ') || null,
+    timestamp: new Date().toISOString(),
+  };
+}
+
+// ─────────────────────────────────────────
+// RENDER READINGS
+// ─────────────────────────────────────────
+function renderReadings() {
+  const container = document.getElementById('readings-list');
+  if (readings.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div>💧</div><div>No readings yet.</div></div>`;
+    return;
+  }
+  container.innerHTML = readings.slice(0, 10).map(r => `
+    <div class="reading-item ${r.status}">
+      <div class="reading-info">
+        <div class="village">🏘️ ${sanitize(r.villageName)} <span class="status-badge ${r.status}">${r.status}</span></div>
+        <div class="time">🕐 ${new Date(r.timestamp).toLocaleTimeString()}
+          ${r.alertParameter ? `· ⚠️ ${sanitize(r.alertParameter)}` : ''}</div>
+      </div>
+      <div class="reading-params">
+        <span class="param-badge">pH ${r.ph}</span>
+        <span class="param-badge">${r.tds}ppm</span>
+        <span class="param-badge">${r.turbidity}NTU</span>
+        <span class="param-badge">${r.temperature}°C</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function updateMetrics() {
+  document.getElementById('metric-total').textContent   = readings.length;
+  document.getElementById('metric-safe').textContent    = readings.filter(r => r.status==='SAFE').length;
+  document.getElementById('metric-danger').textContent  = readings.filter(r => r.status==='DANGER').length;
+  document.getElementById('metric-warning').textContent = readings.filter(r => r.status==='WARNING').length;
+}
+
+async function loadReadings() {
+  try {
+    const res = await fetch(`${API_BASE}/water/readings`, { signal: AbortSignal.timeout(3000) });
+    if (res.ok) {
+      const data = await res.json();
+      readings.length = 0;
+      readings.push(...(data.data || []));
+      renderReadings();
+      updateMetrics();
+    }
+  } catch { /* backend offline, that's ok */ }
+}
+
+// ─────────────────────────────────────────
+// FLOATING PARTICLES
+// ─────────────────────────────────────────
+(function spawnParticles() {
+  const scene = document.querySelector('.bg-scene');
+  for (let i = 0; i < 20; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.cssText = `
+      left: ${Math.random()*100}%;
+      animation-duration: ${8 + Math.random()*12}s;
+      animation-delay: ${Math.random()*10}s;
+      width: ${1 + Math.random()*3}px;
+      height: ${1 + Math.random()*3}px;
+    `;
+    scene.appendChild(p);
+  }
+})();
+
+// ─────────────────────────────────────────
+// AUTO-LOGIN if valid session exists
+// ─────────────────────────────────────────
+(function checkExistingSession() {
+  const session = getSession();
+  if (session) showDashboard(session.user);
+  // Update attempts display
+  const remaining = SECURITY.MAX_LOGIN_ATTEMPTS - getAttempts();
+  document.getElementById('attempts-left').textContent = Math.max(0, remaining);
+})();
+
+// ─────────────────────────────────────────
+// SECURITY: Disable right-click & devtools hints
+// ─────────────────────────────────────────
+// Note: Real security lives in the backend — these are UX hardening only
+document.addEventListener('contextmenu', e => e.preventDefault());
+</script>
+</body>
+</html>
