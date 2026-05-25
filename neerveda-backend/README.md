@@ -6,7 +6,7 @@ Built for **Smart India Hackathon 2025** | Team CORE_401 | Problem ID: SIH25001
 
 ---
 
-## 🏗️ Tech Stack
+##  Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
@@ -51,7 +51,7 @@ neerveda-backend/
 
 ---
 
-## 🚀 How to Run
+##  How to Run
 
 ### Prerequisites
 - Java 21
@@ -73,7 +73,7 @@ mvn spring-boot:run
 
 ---
 
-## 🌊 API Endpoints
+##  API Endpoints
 
 ### Water Quality APIs
 | Method | URL | Description |
@@ -95,7 +95,7 @@ mvn spring-boot:run
 
 ---
 
-## 🧪 Sample API Test (use Postman or curl)
+##  Sample API Test (use Postman or curl)
 
 ### Submit a water reading:
 ```json
