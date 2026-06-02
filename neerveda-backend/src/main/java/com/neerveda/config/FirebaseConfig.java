@@ -98,7 +98,16 @@ public class FirebaseConfig {
             }
         }
 
-        // Priority 2: classpath file (local dev)
+        // Priority 2: Render Secret File at /etc/secrets/
+        java.io.File secretFile = new java.io.File("/etc/secrets/firebase-service-account.json");
+        if (secretFile.exists()) {
+            log.info("🔥 Loading Firebase credentials from Render secret file.");
+            try (InputStream stream = new java.io.FileInputStream(secretFile)) {
+                return GoogleCredentials.fromStream(stream);
+            }
+        }
+
+        // Priority 3: classpath file (local dev)
         try {
             ClassPathResource resource = new ClassPathResource(credentialsFile);
             if (resource.exists()) {
