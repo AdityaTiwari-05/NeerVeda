@@ -22,8 +22,19 @@ public class FirestoreRepository {
     private final Firestore firestore;
 
     @Autowired
-    public FirestoreRepository(Firestore firestore) {
+    public FirestoreRepository(@Autowired(required = false) Firestore firestore) {
         this.firestore = firestore;
+        if (firestore == null) {
+            log.warn("⚠️  FirestoreRepository initialized without Firestore — all DB calls will return empty results.");
+        }
+    }
+
+    private void checkFirestore() {
+        if (firestore == null) {
+            throw new RuntimeException(
+                "Firestore is not initialized. Set GOOGLE_APPLICATION_CREDENTIALS_JSON on Render."
+            );
+        }
     }
 
     // -------------------------------------------------------
@@ -31,6 +42,7 @@ public class FirestoreRepository {
     // -------------------------------------------------------
 
     public <T> String save(String collection, String documentId, T entity) {
+        checkFirestore();
         try {
             CollectionReference ref = firestore.collection(collection);
             DocumentReference docRef = (documentId != null)
@@ -52,6 +64,7 @@ public class FirestoreRepository {
     // -------------------------------------------------------
 
     public Optional<Map<String, Object>> findById(String collection, String documentId) {
+        checkFirestore();
         try {
             DocumentSnapshot doc = firestore.collection(collection)
                 .document(documentId).get().get();
@@ -73,6 +86,7 @@ public class FirestoreRepository {
     // -------------------------------------------------------
 
     public List<Map<String, Object>> findAll(String collection) {
+        checkFirestore();
         try {
             QuerySnapshot snapshot = firestore.collection(collection).get().get();
             List<Map<String, Object>> results = new ArrayList<>();

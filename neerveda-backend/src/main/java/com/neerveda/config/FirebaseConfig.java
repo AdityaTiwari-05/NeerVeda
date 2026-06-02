@@ -17,11 +17,12 @@ import java.io.InputStream;
 /**
  * 🔥 FirebaseConfig
  *
- * Initializes Firebase synchronously in a @Bean method (not @PostConstruct)
- * so Spring can enforce correct bean creation order via @DependsOn.
+ * Firebase is initialized as optional — if credentials are missing
+ * the app starts anyway and logs a warning. This prevents deployment
+ * failures when the env variable hasn't been set yet.
  *
- * Credentials loaded from (in priority order):
- *  1. GOOGLE_APPLICATION_CREDENTIALS_JSON env variable (Render / production)
+ * Credentials loaded from (priority order):
+ *  1. GOOGLE_APPLICATION_CREDENTIALS_JSON env variable (Render/production)
  *  2. firebase-service-account.json in classpath (local dev)
  */
 @Slf4j
@@ -34,59 +35,59 @@ public class FirebaseConfig {
     @Value("${firebase.project-id:neerveda}")
     private String projectId;
 
-    /**
-     * Initializes Firebase AND returns the FirebaseApp in one bean.
-     * All other beans that need Firebase should @DependsOn("firebaseApp").
-     */
     @Bean("firebaseApp")
-    public FirebaseApp firebaseApp() throws IOException {
+    public FirebaseApp firebaseApp() {
+        // Already initialized (e.g. hot reload)
         if (!FirebaseApp.getApps().isEmpty()) {
             log.info("🔥 Firebase already initialized.");
             return FirebaseApp.getInstance();
         }
 
-        GoogleCredentials credentials = loadCredentials();
-        if (credentials == null) {
-            log.error("❌ No Firebase credentials found. Set GOOGLE_APPLICATION_CREDENTIALS_JSON env variable on Render.");
-            throw new IllegalStateException(
-                "Firebase credentials not found. " +
-                "Set GOOGLE_APPLICATION_CREDENTIALS_JSON environment variable."
-            );
+        try {
+            GoogleCredentials credentials = loadCredentials();
+            if (credentials == null) {
+                log.warn("⚠️  GOOGLE_APPLICATION_CREDENTIALS_JSON not set and no classpath file found.");
+                log.warn("⚠️  Starting without Firebase — data will NOT persist to Firestore.");
+                log.warn("⚠️  Set GOOGLE_APPLICATION_CREDENTIALS_JSON on Render to enable persistence.");
+                return null; // graceful degradation
+            }
+
+            FirebaseOptions options = FirebaseOptions.builder()
+                .setCredentials(credentials)
+                .setProjectId(projectId)
+                .build();
+
+            FirebaseApp app = FirebaseApp.initializeApp(options);
+            log.info("🔥 Firebase connected! Project: {}", projectId);
+            return app;
+
+        } catch (Exception e) {
+            log.error("❌ Firebase init failed: {}", e.getMessage());
+            log.warn("⚠️  Starting without Firebase.");
+            return null;
         }
-
-        FirebaseOptions options = FirebaseOptions.builder()
-            .setCredentials(credentials)
-            .setProjectId(projectId)
-            .build();
-
-        FirebaseApp app = FirebaseApp.initializeApp(options);
-        log.info("🔥 Firebase connected successfully! Project: {}", projectId);
-        return app;
     }
 
-    /**
-     * Firestore bean — depends on firebaseApp being initialized first.
-     */
     @Bean
     public Firestore firestore(FirebaseApp firebaseApp) {
+        if (firebaseApp == null) {
+            log.warn("⚠️  Firestore unavailable — Firebase not initialized.");
+            return null;
+        }
         return FirestoreClient.getFirestore(firebaseApp);
     }
 
-    // -------------------------------------------------------
-    // CREDENTIAL LOADING
-    // -------------------------------------------------------
-
     private GoogleCredentials loadCredentials() throws IOException {
-        // Option 1: JSON content as environment variable (Render, Docker, CI)
+        // Option 1: env variable (Render production)
         String credJson = System.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON");
         if (credJson != null && !credJson.isBlank()) {
-            log.info("🔥 Loading Firebase credentials from GOOGLE_APPLICATION_CREDENTIALS_JSON env var.");
+            log.info("🔥 Loading Firebase credentials from env variable.");
             try (var stream = new java.io.ByteArrayInputStream(credJson.getBytes())) {
                 return GoogleCredentials.fromStream(stream);
             }
         }
 
-        // Option 2: classpath file (local development)
+        // Option 2: classpath file (local dev)
         try {
             ClassPathResource resource = new ClassPathResource(credentialsFile);
             if (resource.exists()) {
@@ -96,7 +97,7 @@ public class FirebaseConfig {
                 }
             }
         } catch (Exception e) {
-            log.warn("Could not load Firebase credentials from classpath: {}", e.getMessage());
+            log.warn("Classpath credentials not found: {}", e.getMessage());
         }
 
         return null;
