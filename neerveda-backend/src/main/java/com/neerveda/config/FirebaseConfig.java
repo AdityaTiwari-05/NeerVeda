@@ -71,18 +71,19 @@ public class FirebaseConfig {
     // -------------------------------------------------------
 
     @Bean
-    public Firestore firestore() {
-        if (FirebaseApp.getApps().isEmpty()) {
-            log.warn("⚠️  Firestore bean not created — Firebase not initialized.");
-            return null;
-        }
-        try {
-            return FirestoreClient.getFirestore();
-        } catch (Exception e) {
-            log.error("❌ Could not create Firestore bean: {}", e.getMessage());
-            return null;
-        }
+public Firestore firestore(FirebaseApp firebaseApp) {
+    if (firebaseApp == null) {
+        log.warn("⚠️ Firestore bean not created — Firebase not initialized.");
+        return null;
     }
+
+    try {
+        return FirestoreClient.getFirestore(firebaseApp);
+    } catch (Exception e) {
+        log.error("❌ Could not create Firestore bean: {}", e.getMessage());
+        return null;
+    }
+}
 
     // -------------------------------------------------------
     // Credential loading
