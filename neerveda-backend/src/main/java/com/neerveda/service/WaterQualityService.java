@@ -1,32 +1,39 @@
 package com.neerveda.service;
 
+import com.neerveda.model.Alert;
 import com.neerveda.model.WaterQualityData;
 import com.neerveda.model.WaterQualityData.WaterStatus;
+import com.neerveda.repository.FirestoreRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * 💧 WaterQualityService
  *
- * This is the BRAIN for water quality analysis.
- * It receives raw sensor data and:
- * 1. Checks each parameter against safe thresholds
- * 2. Determines the overall water status (SAFE/WARNING/DANGER)
- * 3. Generates alert messages if needed
- * 4. Saves data to Firebase (coming in next phase)
+ * Core water safety analysis engine.
  *
- * Thresholds are based on:
- * - WHO Drinking Water Guidelines
- * - Jal Jeevan Mission WQMS Framework
+ * Responsibilities:
+ *  1. Validate incoming IoT sensor data
+ *  2. Assess water quality against WHO / Jal Jeevan Mission thresholds
+ *  3. Persist readings to Firestore "water_readings" collection
+ *  4. Trigger alert generation when thresholds are breached
  */
-@Service  // Tells Spring this is a service class
+@Slf4j
+@Service
+@RequiredArgsConstructor
 public class WaterQualityService {
 
-    // These values come from application.properties
-    // So we can change thresholds without changing code!
+    private static final String COLLECTION = "water_readings";
+
+    private final FirestoreRepository firestoreRepository;
+    private final AlertService alertService;
+    private final SmsService smsService;
+
     @Value("${neerveda.threshold.ph.min}")
     private double phMin;
 
@@ -42,106 +49,144 @@ public class WaterQualityService {
     @Value("${neerveda.threshold.temperature.max}")
     private double temperatureMax;
 
-    /**
-     * Analyzes incoming sensor data and determines water safety status
-     *
-     * @param data - Raw sensor reading from ESP32
-     * @return Analyzed WaterQualityData with status and alert info
-     */
-    public WaterQualityData analyzeWaterQuality(WaterQualityData data) {
+    // -------------------------------------------------------
+    // ANALYSE & PERSIST
+    // -------------------------------------------------------
 
-        // Generate unique ID and set timestamp
+    public WaterQualityData analyzeAndSave(WaterQualityData data) {
         data.setId(UUID.randomUUID().toString());
         data.setTimestamp(LocalDateTime.now());
 
-        // Analyze each sensor parameter
-        StringBuilder alertMessage = new StringBuilder();
-        String alertParameter = null;
-        WaterStatus status = WaterStatus.SAFE; // Start optimistic!
+        analyzeWaterQuality(data);
 
-        // ===== CHECK pH =====
-        // Safe range: 6.5 - 8.5
+        // Persist to Firestore
+        firestoreRepository.save(COLLECTION, data.getId(), toMap(data));
+
+        // Trigger alert pipeline if dangerous
+        if (data.getStatus() == WaterStatus.DANGER) {
+            alertService.createWaterQualityAlert(data);
+            smsService.sendWaterAlert(data);
+        }
+
+        log.info("📊 Reading saved [{}] — Village: {} | Status: {}",
+            data.getId(), data.getVillageName(), data.getStatus());
+
+        return data;
+    }
+
+    // -------------------------------------------------------
+    // ANALYSIS LOGIC (also used by tests)
+    // -------------------------------------------------------
+
+    public WaterQualityData analyzeWaterQuality(WaterQualityData data) {
+        if (data.getId() == null) data.setId(UUID.randomUUID().toString());
+        if (data.getTimestamp() == null) data.setTimestamp(LocalDateTime.now());
+
+        StringBuilder alertMessage = new StringBuilder();
+        List<String> alertParams = new ArrayList<>();
+        WaterStatus status = WaterStatus.SAFE;
+
+        // pH check
         if (data.getPh() < phMin || data.getPh() > phMax) {
             status = WaterStatus.DANGER;
-            alertParameter = "pH";
+            alertParams.add("pH");
             alertMessage.append(String.format(
-                "⚠️ pH level (%.1f) is outside safe range (%.1f - %.1f). " +
-                "Risk: Gastroenteritis, Skin Irritation. ",
-                data.getPh(), phMin, phMax
-            ));
+                "pH %.1f outside safe range (%.1f–%.1f). Risk: Gastroenteritis. ",
+                data.getPh(), phMin, phMax));
         }
 
-        // ===== CHECK TDS =====
-        // Safe limit: below 500 ppm
+        // TDS check
         if (data.getTds() > tdsMax) {
             status = WaterStatus.DANGER;
-            alertParameter = alertParameter == null ? "TDS" : alertParameter + ", TDS";
+            alertParams.add("TDS");
             alertMessage.append(String.format(
-                "⚠️ TDS level (%.0f ppm) exceeds safe limit (%.0f ppm). " +
-                "Risk: Kidney problems. ",
-                data.getTds(), tdsMax
-            ));
+                "TDS %.0f ppm exceeds limit (%.0f ppm). Risk: Kidney disease. ",
+                data.getTds(), tdsMax));
         }
 
-        // ===== CHECK TURBIDITY =====
-        // Safe limit: below 5 NTU
+        // Turbidity check
         if (data.getTurbidity() > turbidityMax) {
             status = WaterStatus.DANGER;
-            alertParameter = alertParameter == null ? "Turbidity" : alertParameter + ", Turbidity";
+            alertParams.add("Turbidity");
             alertMessage.append(String.format(
-                "⚠️ Turbidity (%.1f NTU) exceeds safe limit (%.0f NTU). " +
-                "Risk: Cholera, Typhoid, Acute Diarrhea. ",
-                data.getTurbidity(), turbidityMax
-            ));
+                "Turbidity %.1f NTU exceeds limit (%.0f NTU). Risk: Cholera, Typhoid. ",
+                data.getTurbidity(), turbidityMax));
         }
 
-        // ===== CHECK TEMPERATURE =====
-        // Safe limit: below 35°C
+        // Temperature check
         if (data.getTemperature() > temperatureMax) {
-            // Temperature alone is WARNING unless combined with others
-            if (status == WaterStatus.DANGER) {
-                status = WaterStatus.DANGER;
-            } else {
-                status = WaterStatus.WARNING;
-            }
-            alertParameter = alertParameter == null ? "Temperature" : alertParameter + ", Temperature";
+            if (status != WaterStatus.DANGER) status = WaterStatus.WARNING;
+            alertParams.add("Temperature");
             alertMessage.append(String.format(
-                "⚠️ Temperature (%.1f°C) exceeds safe limit (%.0f°C). " +
-                "Risk: Bacterial growth, Cholera, Hepatitis A. ",
-                data.getTemperature(), temperatureMax
-            ));
+                "Temperature %.1f°C exceeds limit (%.0f°C). Risk: Bacterial growth. ",
+                data.getTemperature(), temperatureMax));
         }
 
-        // ===== SET STATUS =====
         data.setStatus(status);
-        data.setAlertParameter(alertParameter);
+        data.setAlertParameter(String.join(", ", alertParams));
         data.setAlertMessage(
             status == WaterStatus.SAFE
-                ? "✅ All water quality parameters are within safe limits."
+                ? "✅ All parameters within safe limits."
                 : alertMessage.toString().trim()
         );
 
         return data;
     }
 
-    /**
-     * Checks if a water reading requires an immediate alert
-     * (to be sent via SMS/notification)
-     */
+    // -------------------------------------------------------
+    // QUERIES
+    // -------------------------------------------------------
+
+    public List<Map<String, Object>> getAllReadings() {
+        return firestoreRepository.findAll(COLLECTION);
+    }
+
+    public Optional<Map<String, Object>> getReadingById(String id) {
+        return firestoreRepository.findById(COLLECTION, id);
+    }
+
+    public List<Map<String, Object>> getReadingsByVillage(String villageId) {
+        return firestoreRepository.findByField(COLLECTION, "villageId", villageId);
+    }
+
+    public List<Map<String, Object>> getDangerousReadings() {
+        return firestoreRepository.findByField(COLLECTION, "status", "DANGER");
+    }
+
+    // -------------------------------------------------------
+    // HELPERS
+    // -------------------------------------------------------
+
     public boolean requiresImmediateAlert(WaterQualityData data) {
         return data.getStatus() == WaterStatus.DANGER;
     }
 
-    /**
-     * Generates a short SMS-friendly alert message (for Twilio)
-     * Kept under 160 characters for single SMS
-     */
     public String generateSmsAlert(WaterQualityData data) {
         return String.format(
-            "NeerVeda ALERT: Unsafe water detected in %s. " +
-            "Issue: %s. Avoid drinking water. Contact health worker immediately.",
-            data.getVillageName(),
-            data.getAlertParameter()
+            "NeerVeda ALERT: Unsafe water in %s. Issue: %s. " +
+            "Avoid drinking. Contact health worker. -NeerVeda",
+            data.getVillageName(), data.getAlertParameter()
         );
+    }
+
+    private Map<String, Object> toMap(WaterQualityData d) {
+        Map<String, Object> m = new HashMap<>();
+        m.put("id", d.getId());
+        m.put("villageId", d.getVillageId());
+        m.put("villageName", d.getVillageName());
+        m.put("district", d.getDistrict());
+        m.put("state", d.getState());
+        m.put("latitude", d.getLatitude());
+        m.put("longitude", d.getLongitude());
+        m.put("ph", d.getPh());
+        m.put("tds", d.getTds());
+        m.put("turbidity", d.getTurbidity());
+        m.put("temperature", d.getTemperature());
+        m.put("status", d.getStatus() != null ? d.getStatus().name() : null);
+        m.put("alertParameter", d.getAlertParameter());
+        m.put("alertMessage", d.getAlertMessage());
+        m.put("deviceId", d.getDeviceId());
+        m.put("timestamp", d.getTimestamp() != null ? d.getTimestamp().toString() : null);
+        return m;
     }
 }

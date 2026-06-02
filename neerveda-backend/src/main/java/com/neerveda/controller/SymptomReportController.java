@@ -2,126 +2,124 @@ package com.neerveda.controller;
 
 import com.neerveda.dto.ApiResponse;
 import com.neerveda.model.SymptomReport;
+import com.neerveda.security.NeerVedaUserPrincipal;
+import com.neerveda.service.SymptomReportService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
+import java.util.Map;
 
 /**
  * 🏥 SymptomReportController
  *
- * Handles disease symptom reports submitted by:
- * - ASHA Workers (via mobile app)
- * - Volunteers
- * - Clinics
- * - Community members (via SMS)
+ * BASE URL: /api/v1/symptoms
  *
- * BASE URL: http://localhost:8080/api/v1/symptoms
- *
- * ENDPOINTS:
- * POST  /api/v1/symptoms/report         → Submit new symptom report
- * GET   /api/v1/symptoms/reports        → Get all reports
- * GET   /api/v1/symptoms/reports/{villageId} → Get reports by village
- * PUT   /api/v1/symptoms/report/{id}/review  → Health officer reviews report
+ * Endpoints:
+ *   POST /report                         — HEALTH_WORKER, ADMIN
+ *   GET  /reports                        — HEALTH_WORKER, GOVERNMENT_OFFICER, ADMIN
+ *   GET  /reports/village/{villageId}    — HEALTH_WORKER, GOVERNMENT_OFFICER, ADMIN
+ *   GET  /report/{id}                    — HEALTH_WORKER, GOVERNMENT_OFFICER, ADMIN
+ *   PUT  /report/{id}/review             — HEALTH_WORKER, ADMIN
  */
 @RestController
 @RequestMapping("/api/v1/symptoms")
-@CrossOrigin(origins = "*")
+@RequiredArgsConstructor
+@Tag(name = "Symptom Reports", description = "Disease symptom reporting and outbreak monitoring")
+@SecurityRequirement(name = "bearerAuth")
 public class SymptomReportController {
 
-    // Temporary storage (Firebase integration coming next)
-    private List<SymptomReport> reports = new ArrayList<>();
+    private final SymptomReportService symptomReportService;
 
-    // =========================================================
-    // 1. SUBMIT SYMPTOM REPORT
-    //    URL: POST http://localhost:8080/api/v1/symptoms/report
-    // =========================================================
+    // -------------------------------------------------------
+    // SUBMIT REPORT
+    // -------------------------------------------------------
+
     @PostMapping("/report")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HEALTH_WORKER', 'GOVERNMENT_OFFICER')")
+    @Operation(summary = "Submit a disease symptom report")
     public ResponseEntity<ApiResponse<SymptomReport>> submitReport(
             @RequestBody SymptomReport report) {
 
-        try {
-            // Set ID and timestamp
-            report.setId(UUID.randomUUID().toString());
-            report.setTimestamp(LocalDateTime.now());
-            report.setStatus("PENDING");
-
-            reports.add(report);
-
-            System.out.println("🏥 New symptom report from: " + report.getReportedBy());
-            System.out.println("   Village: " + report.getVillageName());
-            System.out.println("   Symptoms: " + report.getSymptoms());
-            System.out.println("   Suspected Disease: " + report.getSuspectedDisease());
-            System.out.println("   Affected Count: " + report.getAffectedCount());
-
-            return ResponseEntity
-                    .status(HttpStatus.CREATED)
-                    .body(ApiResponse.created("Symptom report submitted successfully.", report));
-
-        } catch (Exception e) {
-            return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponse.error("Failed to submit report: " + e.getMessage(), 500));
-        }
+        SymptomReport saved = symptomReportService.submit(report);
+        return ResponseEntity
+            .status(HttpStatus.CREATED)
+            .body(ApiResponse.created("Symptom report submitted successfully.", saved));
     }
 
-    // =========================================================
-    // 2. GET ALL REPORTS
-    //    URL: GET http://localhost:8080/api/v1/symptoms/reports
-    // =========================================================
+    // -------------------------------------------------------
+    // GET ALL REPORTS
+    // -------------------------------------------------------
+
     @GetMapping("/reports")
-    public ResponseEntity<ApiResponse<List<SymptomReport>>> getAllReports() {
-        return ResponseEntity.ok(
-            ApiResponse.success("Retrieved " + reports.size() + " symptom reports.", reports)
-        );
+    @PreAuthorize("hasAnyRole('ADMIN', 'HEALTH_WORKER', 'GOVERNMENT_OFFICER')")
+    @Operation(summary = "Get all symptom reports")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getAllReports() {
+        List<Map<String, Object>> reports = symptomReportService.getAll();
+        return ResponseEntity.ok(ApiResponse.success(
+            "Retrieved " + reports.size() + " reports.",
+            reports
+        ));
     }
 
-    // =========================================================
-    // 3. GET REPORTS BY VILLAGE
-    //    URL: GET http://localhost:8080/api/v1/symptoms/reports/{villageId}
-    // =========================================================
-    @GetMapping("/reports/{villageId}")
-    public ResponseEntity<ApiResponse<List<SymptomReport>>> getReportsByVillage(
+    // -------------------------------------------------------
+    // GET REPORTS BY VILLAGE
+    // -------------------------------------------------------
+
+    @GetMapping("/reports/village/{villageId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HEALTH_WORKER', 'GOVERNMENT_OFFICER')")
+    @Operation(summary = "Get symptom reports for a specific village")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getReportsByVillage(
             @PathVariable String villageId) {
 
-        List<SymptomReport> villageReports = reports.stream()
-                .filter(r -> villageId.equals(r.getVillageId()))
-                .toList();
-
-        return ResponseEntity.ok(
-            ApiResponse.success(
-                "Found " + villageReports.size() + " reports for village " + villageId,
-                villageReports
-            )
-        );
+        List<Map<String, Object>> reports = symptomReportService.getByVillage(villageId);
+        return ResponseEntity.ok(ApiResponse.success(
+            "Found " + reports.size() + " reports for village " + villageId,
+            reports
+        ));
     }
 
-    // =========================================================
-    // 4. REVIEW A REPORT (Health Officer)
-    //    URL: PUT http://localhost:8080/api/v1/symptoms/report/{id}/review
-    // =========================================================
+    // -------------------------------------------------------
+    // GET REPORT BY ID
+    // -------------------------------------------------------
+
+    @GetMapping("/report/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HEALTH_WORKER', 'GOVERNMENT_OFFICER')")
+    @Operation(summary = "Get a specific symptom report by ID")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getReportById(@PathVariable String id) {
+        return symptomReportService.getById(id)
+            .map(r -> ResponseEntity.ok(ApiResponse.success("Report found.", r)))
+            .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.error("Report not found: " + id, 404)));
+    }
+
+    // -------------------------------------------------------
+    // REVIEW REPORT
+    // -------------------------------------------------------
+
     @PutMapping("/report/{id}/review")
-    public ResponseEntity<ApiResponse<SymptomReport>> reviewReport(
+    @PreAuthorize("hasAnyRole('ADMIN', 'HEALTH_WORKER')")
+    @Operation(summary = "Review and update a symptom report status")
+    public ResponseEntity<ApiResponse<String>> reviewReport(
             @PathVariable String id,
             @RequestParam String status,
-            @RequestParam(required = false) String notes) {
+            @RequestParam(required = false) String notes,
+            @AuthenticationPrincipal NeerVedaUserPrincipal principal) {
 
-        return reports.stream()
-                .filter(r -> r.getId().equals(id))
-                .findFirst()
-                .map(r -> {
-                    r.setStatus(status);
-                    r.setReviewNotes(notes);
-                    return ResponseEntity.ok(
-                        ApiResponse.success("Report reviewed. Status: " + status, r)
-                    );
-                })
-                .orElse(ResponseEntity
-                        .status(HttpStatus.NOT_FOUND)
-                        .body(ApiResponse.error("Report not found: " + id, 404)));
+        String reviewedBy = principal != null ? principal.getUsername() : "system";
+        symptomReportService.reviewReport(id, status, notes, reviewedBy);
+
+        return ResponseEntity.ok(ApiResponse.success(
+            "Report " + id + " updated to status: " + status,
+            "Updated"
+        ));
     }
 }

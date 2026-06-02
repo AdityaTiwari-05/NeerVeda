@@ -1,172 +1,154 @@
 package com.neerveda.controller;
 
 import com.neerveda.dto.ApiResponse;
+import com.neerveda.dto.WaterReadingRequest;
 import com.neerveda.model.WaterQualityData;
 import com.neerveda.service.WaterQualityService;
-import org.springframework.beans.factory.annotation.Autowired;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 🌊 WaterQualityController
  *
- * This class handles all API requests related to water quality.
- * Think of it as the "front door" of your backend.
+ * BASE URL: /api/v1/water
  *
- * BASE URL: http://localhost:8080/api/v1/water
- *
- * ENDPOINTS:
- * POST   /api/v1/water/reading      → Submit new sensor reading
- * GET    /api/v1/water/readings     → Get all readings
- * GET    /api/v1/water/reading/{id} → Get one reading by ID
- * GET    /api/v1/water/status/{villageId} → Get latest status for a village
- * GET    /api/v1/water/health       → Check if API is running
+ * Endpoints:
+ *   GET  /health                   — public
+ *   POST /reading                  — WATER_INSPECTOR, ADMIN (IoT / device)
+ *   GET  /readings                 — authenticated
+ *   GET  /reading/{id}             — authenticated
+ *   GET  /status/{villageId}       — authenticated
+ *   GET  /alerts                   — authenticated
  */
-@RestController                          // This class handles HTTP requests and returns JSON
-@RequestMapping("/api/v1/water")         // All URLs in this class start with /api/v1/water
-@CrossOrigin(origins = "*")              // Allows frontend (React/etc) to call this API
+@RestController
+@RequestMapping("/api/v1/water")
+@RequiredArgsConstructor
+@Tag(name = "Water Quality", description = "IoT sensor data ingestion and water quality monitoring")
+@SecurityRequirement(name = "bearerAuth")
 public class WaterQualityController {
 
-    // Spring automatically injects the service we created
-    @Autowired
-    private WaterQualityService waterQualityService;
+    private final WaterQualityService waterQualityService;
 
-    // Temporary in-memory storage (will be replaced with Firebase later)
-    private List<WaterQualityData> readings = new ArrayList<>();
+    // -------------------------------------------------------
+    // HEALTH
+    // -------------------------------------------------------
 
-    // =========================================================
-    // 1. HEALTH CHECK - Test if API is running
-    //    URL: GET http://localhost:8080/api/v1/water/health
-    // =========================================================
     @GetMapping("/health")
+    @Operation(summary = "API health check", description = "No authentication required")
     public ResponseEntity<ApiResponse<String>> healthCheck() {
-        return ResponseEntity.ok(
-            ApiResponse.success("💧 NeerVeda Water Quality API is running!", "OK")
-        );
+        return ResponseEntity.ok(ApiResponse.success("💧 NeerVeda Water Quality API is running!", "OK"));
     }
 
-    // =========================================================
-    // 2. SUBMIT SENSOR READING
-    //    URL: POST http://localhost:8080/api/v1/water/reading
-    //    Body: JSON with pH, TDS, turbidity, temperature
-    //
-    //    The ESP32 IoT sensor will call this endpoint
-    //    every time it takes a new water reading.
-    // =========================================================
+    // -------------------------------------------------------
+    // SUBMIT SENSOR READING (IoT)
+    // -------------------------------------------------------
+
     @PostMapping("/reading")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WATER_INSPECTOR')")
+    @Operation(summary = "Submit IoT sensor reading", description = "Called by ESP32 devices")
     public ResponseEntity<ApiResponse<WaterQualityData>> submitReading(
-            @RequestBody WaterQualityData rawData) {
+            @Valid @RequestBody WaterReadingRequest request) {
 
-        try {
-            // Analyze the incoming sensor data
-            WaterQualityData analyzedData = waterQualityService.analyzeWaterQuality(rawData);
+        WaterQualityData data = mapToData(request);
+        WaterQualityData result = waterQualityService.analyzeAndSave(data);
 
-            // Save to our temporary list (Firebase integration comes next)
-            readings.add(analyzedData);
-
-            // Log to console for debugging
-            System.out.println("📊 New reading received from: " + analyzedData.getVillageName());
-            System.out.println("   Status: " + analyzedData.getStatus());
-            System.out.println("   pH: " + analyzedData.getPh());
-            System.out.println("   TDS: " + analyzedData.getTds() + " ppm");
-            System.out.println("   Turbidity: " + analyzedData.getTurbidity() + " NTU");
-            System.out.println("   Temperature: " + analyzedData.getTemperature() + "°C");
-
-            // If water is DANGEROUS, log an alert
-            if (waterQualityService.requiresImmediateAlert(analyzedData)) {
-                System.out.println("🚨 ALERT: " + waterQualityService.generateSmsAlert(analyzedData));
-            }
-
-            return ResponseEntity
-                    .status(HttpStatus.CREATED)
-                    .body(ApiResponse.created(
-                        "Water quality reading recorded successfully. Status: " + analyzedData.getStatus(),
-                        analyzedData
-                    ));
-
-        } catch (Exception e) {
-            return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponse.error("Failed to process reading: " + e.getMessage(), 500));
-        }
+        return ResponseEntity
+            .status(HttpStatus.CREATED)
+            .body(ApiResponse.created(
+                "Reading recorded. Status: " + result.getStatus(),
+                result
+            ));
     }
 
-    // =========================================================
-    // 3. GET ALL READINGS
-    //    URL: GET http://localhost:8080/api/v1/water/readings
-    //
-    //    The dashboard will call this to show all sensor data.
-    // =========================================================
+    // -------------------------------------------------------
+    // GET ALL READINGS
+    // -------------------------------------------------------
+
     @GetMapping("/readings")
-    public ResponseEntity<ApiResponse<List<WaterQualityData>>> getAllReadings() {
-        return ResponseEntity.ok(
-            ApiResponse.success(
-                "Retrieved " + readings.size() + " water quality readings.",
-                readings
-            )
-        );
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Get all water quality readings")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getAllReadings() {
+        List<Map<String, Object>> readings = waterQualityService.getAllReadings();
+        return ResponseEntity.ok(ApiResponse.success(
+            "Retrieved " + readings.size() + " readings.",
+            readings
+        ));
     }
 
-    // =========================================================
-    // 4. GET READING BY ID
-    //    URL: GET http://localhost:8080/api/v1/water/reading/{id}
-    // =========================================================
+    // -------------------------------------------------------
+    // GET READING BY ID
+    // -------------------------------------------------------
+
     @GetMapping("/reading/{id}")
-    public ResponseEntity<ApiResponse<WaterQualityData>> getReadingById(
-            @PathVariable String id) {
-
-        return readings.stream()
-                .filter(r -> r.getId().equals(id))
-                .findFirst()
-                .map(r -> ResponseEntity.ok(ApiResponse.success("Reading found.", r)))
-                .orElse(ResponseEntity
-                        .status(HttpStatus.NOT_FOUND)
-                        .body(ApiResponse.error("Reading with ID " + id + " not found.", 404)));
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Get a specific reading by ID")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getReadingById(@PathVariable String id) {
+        return waterQualityService.getReadingById(id)
+            .map(r -> ResponseEntity.ok(ApiResponse.success("Reading found.", r)))
+            .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.error("Reading not found: " + id, 404)));
     }
 
-    // =========================================================
-    // 5. GET LATEST STATUS FOR A VILLAGE
-    //    URL: GET http://localhost:8080/api/v1/water/status/{villageId}
-    //
-    //    Dashboard shows per-village water safety status.
-    // =========================================================
-    @GetMapping("/status/{villageId}")
-    public ResponseEntity<ApiResponse<WaterQualityData>> getVillageStatus(
+    // -------------------------------------------------------
+    // GET READINGS BY VILLAGE
+    // -------------------------------------------------------
+
+    @GetMapping("/village/{villageId}")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Get all readings for a village")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getByVillage(
             @PathVariable String villageId) {
-
-        // Find the most recent reading for this village
-        return readings.stream()
-                .filter(r -> r.getVillageId().equals(villageId))
-                .reduce((first, second) -> second) // Get last element
-                .map(r -> ResponseEntity.ok(
-                    ApiResponse.success("Latest reading for " + r.getVillageName(), r)
-                ))
-                .orElse(ResponseEntity
-                        .status(HttpStatus.NOT_FOUND)
-                        .body(ApiResponse.error("No readings found for village: " + villageId, 404)));
+        List<Map<String, Object>> readings = waterQualityService.getReadingsByVillage(villageId);
+        return ResponseEntity.ok(ApiResponse.success(
+            "Found " + readings.size() + " readings for village " + villageId,
+            readings
+        ));
     }
 
-    // =========================================================
-    // 6. GET ONLY DANGEROUS READINGS (for alert dashboard)
-    //    URL: GET http://localhost:8080/api/v1/water/alerts
-    // =========================================================
-    @GetMapping("/alerts")
-    public ResponseEntity<ApiResponse<List<WaterQualityData>>> getDangerousReadings() {
-        List<WaterQualityData> dangerous = readings.stream()
-                .filter(r -> r.getStatus() == WaterQualityData.WaterStatus.DANGER)
-                .toList();
+    // -------------------------------------------------------
+    // GET DANGEROUS READINGS
+    // -------------------------------------------------------
 
-        return ResponseEntity.ok(
-            ApiResponse.success(
-                dangerous.isEmpty()
-                    ? "✅ No dangerous water quality readings found."
-                    : "🚨 Found " + dangerous.size() + " dangerous readings!",
-                dangerous
-            )
-        );
+    @GetMapping("/alerts")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Get all DANGER-status readings")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getDangerousReadings() {
+        List<Map<String, Object>> dangerous = waterQualityService.getDangerousReadings();
+        return ResponseEntity.ok(ApiResponse.success(
+            dangerous.isEmpty()
+                ? "No dangerous readings found."
+                : "⚠️ Found " + dangerous.size() + " dangerous readings.",
+            dangerous
+        ));
+    }
+
+    // -------------------------------------------------------
+    // MAPPING
+    // -------------------------------------------------------
+
+    private WaterQualityData mapToData(WaterReadingRequest req) {
+        return WaterQualityData.builder()
+            .villageId(req.getVillageId())
+            .villageName(req.getVillageName())
+            .district(req.getDistrict())
+            .state(req.getState())
+            .latitude(req.getLatitude())
+            .longitude(req.getLongitude())
+            .ph(req.getPh())
+            .tds(req.getTds())
+            .turbidity(req.getTurbidity())
+            .temperature(req.getTemperature())
+            .deviceId(req.getDeviceId())
+            .build();
     }
 }

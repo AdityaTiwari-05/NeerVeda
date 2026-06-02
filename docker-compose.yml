@@ -1,0 +1,64 @@
+version: "3.9"
+
+# ============================================================
+# NeerVeda — Docker Compose
+# Starts: frontend (Next.js) + backend (Spring Boot)
+# Note: Firebase Firestore is cloud-hosted (no local container needed)
+# ============================================================
+
+services:
+
+  # ----- Backend (Spring Boot) ---------------------------------
+  neerveda-backend:
+    build:
+      context: ./neerveda-backend
+      dockerfile: Dockerfile
+    container_name: neerveda-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
+      - JWT_SECRET=${JWT_SECRET}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_FROM=${TWILIO_FROM}
+      - TWILIO_ENABLED=${TWILIO_ENABLED:-false}
+      - CORS_ORIGINS=http://localhost:3000
+      - SPRING_PROFILES_ACTIVE=docker
+    volumes:
+      # Mount Firebase service account file
+      - ./neerveda-backend/src/main/resources/firebase-service-account.json:/app/resources/firebase-service-account.json:ro
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1",
+             "--spider", "http://localhost:8080/api/v1/water/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - neerveda-network
+
+  # ----- Frontend (Next.js) ------------------------------------
+  neerveda-frontend:
+    build:
+      context: ./neerveda-frontend
+      dockerfile: Dockerfile
+    container_name: neerveda-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://neerveda-backend:8080
+      - NEXT_PUBLIC_APP_NAME=NeerVeda
+      - NEXT_PUBLIC_APP_VERSION=1.0.0
+    depends_on:
+      neerveda-backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - neerveda-network
+
+networks:
+  neerveda-network:
+    driver: bridge
+    name: neerveda-network

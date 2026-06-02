@@ -1,72 +1,25 @@
-# ==========================================
-#   NeerVeda Backend - .gitignore
-# ==========================================
-
-# ===== JAVA / MAVEN =====
+# Maven
 target/
-*.class
 *.jar
 *.war
-*.ear
-*.zip
-*.tar.gz
-*.rar
 
-# Maven wrapper
-.mvn/wrapper/maven-wrapper.jar
-
-# ===== IDE FILES =====
-# VS Code
-.vscode/
-*.code-workspace
-
-# IntelliJ IDEA
+# IDE
 .idea/
 *.iml
-*.iws
-*.ipr
-out/
+.vscode/
+*.class
 
-# Eclipse
-.eclipse/
-.classpath
-.project
-.settings/
-
-# ===== SPRING BOOT =====
-spring-shell.log
-
-# ===== FIREBASE =====
-# ⚠️ NEVER commit your Firebase service account key!
-firebase-service-account.json
-*-service-account.json
-*serviceAccount*.json
-google-services.json
-
-# ===== ENVIRONMENT / SECRETS =====
+# Secrets — NEVER commit these
+src/main/resources/firebase-service-account.json
 .env
 .env.local
-.env.production
-*.secret
-secrets/
+.env.*.local
+*.properties.local
 
-# ===== LOGS =====
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
 *.log
 logs/
-
-# ===== OS FILES =====
-# Windows
-Thumbs.db
-Desktop.ini
-
-# Mac
-.DS_Store
-.AppleDouble
-.LSOverride
-
-# Linux
-*~
-
-# ===== NODE (if frontend added later) =====
-node_modules/
-npm-debug.log*

@@ -1,58 +1,97 @@
 package com.neerveda.config;
 
+import com.google.auth.oauth2.GoogleCredentials;
+import com.google.cloud.firestore.Firestore;
+import com.google.firebase.FirebaseApp;
+import com.google.firebase.FirebaseOptions;
+import com.google.firebase.cloud.FirestoreClient;
+import jakarta.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.io.ClassPathResource;
+
+import java.io.IOException;
+import java.io.InputStream;
 
 /**
  * 🔥 FirebaseConfig
  *
- * This class will connect NeerVeda to Firebase Firestore database.
+ * Initializes Firebase Admin SDK and exposes a Firestore bean.
  *
- * SETUP STEPS (do this after getting Firebase service account key):
+ * SETUP:
+ *  1. Firebase Console → Project Settings → Service Accounts
+ *  2. Generate New Private Key → rename to firebase-service-account.json
+ *  3. Place in src/main/resources/
+ *  4. Set FIREBASE_PROJECT_ID env variable (or update application.properties)
  *
- * 1. Go to Firebase Console → Project Settings → Service Accounts
- * 2. Click "Generate New Private Key" → download JSON file
- * 3. Rename it to "firebase-service-account.json"
- * 4. Place it in: src/main/resources/firebase-service-account.json
- * 5. Uncomment the code below
- *
- * FOR NOW: We are using in-memory storage (ArrayList in controllers)
- * NEXT PHASE: We will connect to Firebase and store data permanently.
- *
- * ⚠️ IMPORTANT: NEVER commit firebase-service-account.json to GitHub!
- *    Add it to .gitignore
+ * ⚠️  NEVER commit firebase-service-account.json to source control.
  */
+@Slf4j
 @Configuration
 public class FirebaseConfig {
 
-    // Firebase initialization will go here in Phase 2
-    // Uncomment and complete after downloading service account key:
-
-    /*
     @Value("${firebase.credentials-file}")
     private String credentialsFile;
 
     @Value("${firebase.project-id}")
     private String projectId;
 
-    @Bean
-    public FirebaseApp initializeFirebase() throws IOException {
-        if (FirebaseApp.getApps().isEmpty()) {
-            InputStream serviceAccount = new ClassPathResource(credentialsFile).getInputStream();
+    @PostConstruct
+    public void initializeFirebase() {
+        try {
+            if (FirebaseApp.getApps().isEmpty()) {
+                GoogleCredentials credentials = loadCredentials();
+                if (credentials == null) {
+                    log.warn("⚠️  No Firebase credentials found — running without Firebase.");
+                    return;
+                }
 
-            FirebaseOptions options = FirebaseOptions.builder()
-                    .setCredentials(GoogleCredentials.fromStream(serviceAccount))
+                FirebaseOptions options = FirebaseOptions.builder()
+                    .setCredentials(credentials)
                     .setProjectId(projectId)
                     .build();
 
-            FirebaseApp.initializeApp(options);
-            System.out.println("🔥 Firebase connected successfully!");
+                FirebaseApp.initializeApp(options);
+                log.info("🔥 Firebase connected successfully! Project: {}", projectId);
+            } else {
+                log.info("🔥 Firebase already initialized.");
+            }
+        } catch (IOException e) {
+            log.error("❌ Firebase initialization failed: {}", e.getMessage());
+            log.warn("⚠️  Running without Firebase.");
         }
-        return FirebaseApp.getInstance();
+    }
+
+    /**
+     * Loads Firebase credentials from:
+     * 1. GOOGLE_APPLICATION_CREDENTIALS_JSON env variable (production / Render)
+     * 2. firebase-service-account.json file in classpath (local dev)
+     */
+    private GoogleCredentials loadCredentials() throws IOException {
+        // Option 1: credentials JSON as environment variable (Render, Docker)
+        String credentialsJson = System.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON");
+        if (credentialsJson != null && !credentialsJson.isBlank()) {
+            log.info("🔥 Loading Firebase credentials from environment variable.");
+            try (var stream = new java.io.ByteArrayInputStream(credentialsJson.getBytes())) {
+                return GoogleCredentials.fromStream(stream);
+            }
+        }
+
+        // Option 2: classpath file (local development)
+        try {
+            InputStream serviceAccount = new ClassPathResource(credentialsFile).getInputStream();
+            log.info("🔥 Loading Firebase credentials from classpath file.");
+            return GoogleCredentials.fromStream(serviceAccount);
+        } catch (Exception e) {
+            log.warn("Firebase service account file not found: {}", credentialsFile);
+            return null;
+        }
     }
 
     @Bean
-    public Firestore getFirestore() {
+    public Firestore firestore() {
         return FirestoreClient.getFirestore();
     }
-    */
 }

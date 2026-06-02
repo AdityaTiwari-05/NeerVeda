@@ -1,0 +1,23 @@
+# Firebase credentials — NEVER commit
+**/firebase-service-account.json
+**/resources copy/
+
+# Frontend secrets
+neerveda-frontend/.env.local
+neerveda-frontend/.env*.local
+
+# Node
+neerveda-frontend/node_modules/
+neerveda-frontend/.next/
+
+# Maven build output
+neerveda-backend/target/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db

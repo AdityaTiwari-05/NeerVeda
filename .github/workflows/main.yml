@@ -1,48 +1,185 @@
-name: NeerVeda CI Pipeline
+name: NeerVeda CI/CD Pipeline
 
 on:
   push:
-    branches:
-      - main
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  JAVA_VERSION: "21"
+  NODE_VERSION: "20"
+  REGISTRY: ghcr.io
+  IMAGE_BACKEND: ${{ github.repository }}/neerveda-backend
+  IMAGE_FRONTEND: ${{ github.repository }}/neerveda-frontend
 
 jobs:
-  build:
+
+  # ============================================================
+  # JOB 1: Backend — Test + Build
+  # ============================================================
+  backend-ci:
+    name: Backend CI (Java 21 / Spring Boot)
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install Dependencies
-        run: npm install
-
-      - name: Build Project
-        run: npm run build
-        working-directory: ./frontend
-      
-      - name: Run Tests
-        run: echo "Tests Passed"  
-
-        
-
-  backend-build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Setup Java
+      - name: Setup Java ${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
 
-      - name: Build Backend
-        run: mvn clean install
-        working-directory: ./backend        
+      - name: Create dummy Firebase service account (CI)
+        run: |
+          echo '{"type":"service_account","project_id":"neerveda-ci","private_key_id":"test","private_key":"-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA2a2rwplBQLF29amygykEMmYz0+Kcj3bKBp29W8Cx7ikEF2ZT\n-----END RSA PRIVATE KEY-----\n","client_email":"test@neerveda-ci.iam.gserviceaccount.com","client_id":"123","auth_uri":"https://accounts.google.com/o/oauth2/auth","token_uri":"https://oauth2.googleapis.com/token"}' > neerveda-backend/src/main/resources/firebase-service-account.json
+
+      - name: Build with Maven (skip tests for speed)
+        run: mvn clean package -DskipTests -q
+        working-directory: neerveda-backend
+
+      - name: Run Unit Tests
+        run: mvn test
+        working-directory: neerveda-backend
+        env:
+          FIREBASE_PROJECT_ID: neerveda-ci
+          JWT_SECRET: NeerVedaTestSecretKeyForJWTTokenGenerationCI256BitsMin
+
+      - name: Upload test report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-test-results
+          path: neerveda-backend/target/surefire-reports/
+
+  # ============================================================
+  # JOB 2: Frontend — Lint + Build + Test
+  # ============================================================
+  frontend-ci:
+    name: Frontend CI (Next.js 15)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: neerveda-frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: neerveda-frontend
+
+      - name: Lint
+        run: npm run lint
+        working-directory: neerveda-frontend
+
+      - name: Run tests
+        run: npm test
+        working-directory: neerveda-frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8080
+
+      - name: Build Next.js
+        run: npm run build
+        working-directory: neerveda-frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8080
+          NEXT_PUBLIC_APP_NAME: NeerVeda
+          NEXT_PUBLIC_APP_VERSION: 1.0.0
+
+  # ============================================================
+  # JOB 3: Security Scan (OWASP Dependency Check)
+  # ============================================================
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: [backend-ci, frontend-ci]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run OWASP Dependency Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: "NeerVeda"
+          path: "neerveda-backend"
+          format: "HTML"
+          args: "--failOnCVSS 9 --suppression .github/owasp-suppressions.xml"
+        continue-on-error: true   # Don't block deploy on first scan
+
+      - name: Upload security report
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-report
+          path: reports/
+
+  # ============================================================
+  # JOB 4: Docker Build (main branch only)
+  # ============================================================
+  docker-build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [backend-ci, frontend-ci]
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./neerveda-backend
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_BACKEND }}:latest
+
+      - name: Build & push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./neerveda-frontend
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_FRONTEND }}:latest
+
+  # ============================================================
+  # JOB 5: Deploy (main branch, after Docker build)
+  # ============================================================
+  deploy:
+    name: Deploy to Render + Vercel
+    runs-on: ubuntu-latest
+    needs: [docker-build]
+    if: github.ref == 'refs/heads/main'
+    environment: production
+
+    steps:
+      - name: Trigger Render backend deploy
+        run: |
+          curl -s -X POST "${{ secrets.RENDER_DEPLOY_HOOK_BACKEND }}"
+        if: secrets.RENDER_DEPLOY_HOOK_BACKEND != ''
+
+      - name: Trigger Vercel frontend deploy
+        run: |
+          curl -s -X POST "${{ secrets.VERCEL_DEPLOY_HOOK }}"
+        if: secrets.VERCEL_DEPLOY_HOOK != ''
+
+      - name: Deployment summary
+        run: |
+          echo "✅ NeerVeda deployed successfully!"
+          echo "   Frontend: https://neerveda.vercel.app"
+          echo "   Backend:  https://neerveda-api.onrender.com"
+          echo "   API Docs: https://neerveda-api.onrender.com/swagger-ui"

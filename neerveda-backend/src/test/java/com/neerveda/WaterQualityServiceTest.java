@@ -2,104 +2,201 @@ package com.neerveda;
 
 import com.neerveda.model.WaterQualityData;
 import com.neerveda.model.WaterQualityData.WaterStatus;
+import com.neerveda.service.AlertService;
+import com.neerveda.service.SmsService;
 import com.neerveda.service.WaterQualityService;
+import com.neerveda.repository.FirestoreRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * 🧪 NeerVeda Water Quality Service Tests
+ * 🧪 WaterQualityServiceTest
  *
- * These tests verify that our water safety analysis logic works correctly.
- * Run these with: mvn test
+ * Unit tests for the core water quality analysis engine.
+ * Tests all threshold logic, alert generation, and SMS helper.
+ *
+ * Run with: mvn test
  */
-@SpringBootTest
+@ExtendWith(MockitoExtension.class)
 class WaterQualityServiceTest {
 
-    @Autowired
-    private WaterQualityService waterQualityService;
+    @Mock
+    private FirestoreRepository firestoreRepository;
 
-    // Sample water data for testing
-    private WaterQualityData safeWaterData;
-    private WaterQualityData unsafeWaterData;
+    @Mock
+    private AlertService alertService;
+
+    @Mock
+    private SmsService smsService;
+
+    @InjectMocks
+    private WaterQualityService waterQualityService;
 
     @BeforeEach
     void setUp() {
-        // SAFE water - all values within limits
-        safeWaterData = WaterQualityData.builder()
-                .villageId("VIL001")
-                .villageName("Dimapur Village")
-                .district("Dimapur")
-                .state("Nagaland")
-                .ph(7.2)           // Safe: 6.5 - 8.5
-                .tds(250.0)        // Safe: below 500 ppm
-                .turbidity(2.0)    // Safe: below 5 NTU
-                .temperature(25.0) // Safe: below 35°C
-                .deviceId("ESP32-001")
-                .build();
+        // Inject threshold values (normally from application.properties)
+        ReflectionTestUtils.setField(waterQualityService, "phMin", 6.5);
+        ReflectionTestUtils.setField(waterQualityService, "phMax", 8.5);
+        ReflectionTestUtils.setField(waterQualityService, "tdsMax", 500.0);
+        ReflectionTestUtils.setField(waterQualityService, "turbidityMax", 5.0);
+        ReflectionTestUtils.setField(waterQualityService, "temperatureMax", 35.0);
+    }
 
-        // UNSAFE water - pH and turbidity out of range
-        unsafeWaterData = WaterQualityData.builder()
-                .villageId("VIL002")
-                .villageName("Kohima Village")
-                .district("Kohima")
-                .state("Nagaland")
-                .ph(5.8)           // UNSAFE: below 6.5
-                .tds(300.0)        // Safe
-                .turbidity(8.5)    // UNSAFE: above 5 NTU
-                .temperature(28.0) // Safe
-                .deviceId("ESP32-002")
-                .build();
+    private WaterQualityData safeData() {
+        return WaterQualityData.builder()
+            .villageId("VIL001")
+            .villageName("Dimapur Village")
+            .district("Dimapur")
+            .state("Nagaland")
+            .ph(7.2)
+            .tds(250.0)
+            .turbidity(2.0)
+            .temperature(25.0)
+            .deviceId("ESP32-001")
+            .build();
+    }
+
+    private WaterQualityData dangerData() {
+        return WaterQualityData.builder()
+            .villageId("VIL002")
+            .villageName("Kohima Village")
+            .district("Kohima")
+            .state("Nagaland")
+            .ph(5.8)           // UNSAFE
+            .tds(300.0)
+            .turbidity(8.5)   // UNSAFE
+            .temperature(28.0)
+            .deviceId("ESP32-002")
+            .build();
+    }
+
+    // -------------------------------------------------------
+    // SAFE WATER
+    // -------------------------------------------------------
+
+    @Test
+    @DisplayName("Safe water parameters should return SAFE status")
+    void safeWaterReturnsSafeStatus() {
+        WaterQualityData result = waterQualityService.analyzeWaterQuality(safeData());
+        assertEquals(WaterStatus.SAFE, result.getStatus());
     }
 
     @Test
-    @DisplayName("Safe water should return SAFE status")
-    void testSafeWaterAnalysis() {
-        WaterQualityData result = waterQualityService.analyzeWaterQuality(safeWaterData);
-
-        assertEquals(WaterStatus.SAFE, result.getStatus());
+    @DisplayName("Safe water should have an ID assigned")
+    void safeWaterHasId() {
+        WaterQualityData result = waterQualityService.analyzeWaterQuality(safeData());
         assertNotNull(result.getId());
+        assertFalse(result.getId().isBlank());
+    }
+
+    @Test
+    @DisplayName("Safe water should have a timestamp assigned")
+    void safeWaterHasTimestamp() {
+        WaterQualityData result = waterQualityService.analyzeWaterQuality(safeData());
         assertNotNull(result.getTimestamp());
+    }
+
+    @Test
+    @DisplayName("Safe water alert message should contain checkmark")
+    void safeWaterMessageContainsCheckmark() {
+        WaterQualityData result = waterQualityService.analyzeWaterQuality(safeData());
         assertTrue(result.getAlertMessage().contains("✅"));
     }
 
     @Test
-    @DisplayName("Unsafe water should return DANGER status")
-    void testUnsafeWaterAnalysis() {
-        WaterQualityData result = waterQualityService.analyzeWaterQuality(unsafeWaterData);
+    @DisplayName("Safe water should NOT require immediate alert")
+    void safeWaterDoesNotRequireAlert() {
+        WaterQualityData result = waterQualityService.analyzeWaterQuality(safeData());
+        assertFalse(waterQualityService.requiresImmediateAlert(result));
+    }
 
+    // -------------------------------------------------------
+    // DANGEROUS WATER
+    // -------------------------------------------------------
+
+    @Test
+    @DisplayName("Unsafe pH and turbidity should return DANGER status")
+    void unsafeParametersReturnDanger() {
+        WaterQualityData result = waterQualityService.analyzeWaterQuality(dangerData());
         assertEquals(WaterStatus.DANGER, result.getStatus());
-        assertNotNull(result.getAlertParameter());
-        assertTrue(result.getAlertMessage().contains("⚠️"));
     }
 
     @Test
     @DisplayName("DANGER water should require immediate alert")
-    void testImmediateAlertForDangerousWater() {
-        WaterQualityData result = waterQualityService.analyzeWaterQuality(unsafeWaterData);
-
+    void dangerWaterRequiresAlert() {
+        WaterQualityData result = waterQualityService.analyzeWaterQuality(dangerData());
         assertTrue(waterQualityService.requiresImmediateAlert(result));
     }
 
     @Test
-    @DisplayName("SAFE water should NOT require immediate alert")
-    void testNoAlertForSafeWater() {
-        WaterQualityData result = waterQualityService.analyzeWaterQuality(safeWaterData);
-
-        assertFalse(waterQualityService.requiresImmediateAlert(result));
+    @DisplayName("Alert parameter should mention pH")
+    void dangerAlertParameterContainsPh() {
+        WaterQualityData result = waterQualityService.analyzeWaterQuality(dangerData());
+        assertNotNull(result.getAlertParameter());
+        assertTrue(result.getAlertParameter().contains("pH"));
     }
 
     @Test
-    @DisplayName("SMS alert message should mention village name")
-    void testSmsAlertMessage() {
-        WaterQualityData result = waterQualityService.analyzeWaterQuality(unsafeWaterData);
-        String sms = waterQualityService.generateSmsAlert(result);
+    @DisplayName("Alert parameter should mention Turbidity")
+    void dangerAlertParameterContainsTurbidity() {
+        WaterQualityData result = waterQualityService.analyzeWaterQuality(dangerData());
+        assertTrue(result.getAlertParameter().contains("Turbidity"));
+    }
 
+    // -------------------------------------------------------
+    // HIGH TDS
+    // -------------------------------------------------------
+
+    @Test
+    @DisplayName("TDS above 500 ppm should trigger DANGER")
+    void highTdsReturnsDanger() {
+        WaterQualityData data = safeData();
+        data.setTds(750.0);
+        WaterQualityData result = waterQualityService.analyzeWaterQuality(data);
+        assertEquals(WaterStatus.DANGER, result.getStatus());
+        assertTrue(result.getAlertParameter().contains("TDS"));
+    }
+
+    // -------------------------------------------------------
+    // HIGH TEMPERATURE (WARNING only)
+    // -------------------------------------------------------
+
+    @Test
+    @DisplayName("Temperature above 35°C alone should produce WARNING not DANGER")
+    void highTemperatureAloneProducesWarning() {
+        WaterQualityData data = safeData();
+        data.setTemperature(38.0);
+        WaterQualityData result = waterQualityService.analyzeWaterQuality(data);
+        assertEquals(WaterStatus.WARNING, result.getStatus());
+    }
+
+    // -------------------------------------------------------
+    // SMS
+    // -------------------------------------------------------
+
+    @Test
+    @DisplayName("SMS alert should include village name")
+    void smsAlertIncludesVillageName() {
+        WaterQualityData result = waterQualityService.analyzeWaterQuality(dangerData());
+        String sms = waterQualityService.generateSmsAlert(result);
         assertTrue(sms.contains("Kohima Village"));
         assertTrue(sms.contains("NeerVeda"));
+    }
+
+    @Test
+    @DisplayName("SMS alert should be within 320 character limit (2 SMS)")
+    void smsAlertWithinCharacterLimit() {
+        WaterQualityData result = waterQualityService.analyzeWaterQuality(dangerData());
+        String sms = waterQualityService.generateSmsAlert(result);
+        assertTrue(sms.length() <= 320,
+            "SMS too long: " + sms.length() + " chars");
     }
 }
