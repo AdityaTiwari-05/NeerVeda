@@ -15,7 +15,7 @@ Built for **Smart India Hackathon 2025** | Team CORE_401 | Problem ID: SIH25001
 | Database | Firebase Firestore |
 | IoT Integration | ESP32 + REST API |
 | Notifications | Twilio SMS |
-| Deployment | AWS / Netlify |
+| Deployment | Vercel / Render |
 | AI/ML | Python (scikit-learn, ARIMA) |
 
 ---
