@@ -39,4 +39,6 @@ ENTRYPOINT ["java", \
   "-XX:MaxRAMPercentage=75.0", \
   "-XX:+UseG1GC", \
   "-Djava.security.egd=file:/dev/./urandom", \
+  "-Dio.grpc.netty.shaded.io.netty.tcnative.loadJni=false", \
+  "-Dcom.google.cloud.firestore.grpc=false", \
   "-jar", "app.jar"]

@@ -78,7 +78,21 @@
         <dependency>
             <groupId>com.google.firebase</groupId>
             <artifactId>firebase-admin</artifactId>
-            <version>${firebase.version}</version>
+            <version>9.1.1</version>
+            <exclusions>
+                <!-- Exclude native Netty SSL that causes SIGSEGV on Render Linux -->
+                <exclusion>
+                    <groupId>io.grpc</groupId>
+                    <artifactId>grpc-netty-shaded</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- Pure-Java gRPC transport — no native libs, stable on all Linux -->
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-okhttp</artifactId>
+            <version>1.57.2</version>
         </dependency>
 
         <!-- ===== RATE LIMITING — Bucket4j ===== -->
