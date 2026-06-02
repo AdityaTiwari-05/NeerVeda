@@ -15,15 +15,13 @@ import java.io.IOException;
 import java.io.InputStream;
 
 /**
- * 🔥 FirebaseConfig
+ * 🔥 FirebaseConfig — Firebase is fully optional.
  *
- * Firebase is initialized as optional — if credentials are missing
- * the app starts anyway and logs a warning. This prevents deployment
- * failures when the env variable hasn't been set yet.
+ * If credentials are missing the app boots normally and returns
+ * empty results from all Firestore calls rather than crashing.
  *
- * Credentials loaded from (priority order):
- *  1. GOOGLE_APPLICATION_CREDENTIALS_JSON env variable (Render/production)
- *  2. firebase-service-account.json in classpath (local dev)
+ * To enable Firestore on Render:
+ *   Set env variable GOOGLE_APPLICATION_CREDENTIALS_JSON = <contents of firebase-service-account.json>
  */
 @Slf4j
 @Configuration
@@ -35,50 +33,63 @@ public class FirebaseConfig {
     @Value("${firebase.project-id:neerveda}")
     private String projectId;
 
+    // -------------------------------------------------------
+    // Firebase App — returns null gracefully if no credentials
+    // @Bean with null return + @Autowired(required=false) downstream
+    // -------------------------------------------------------
+
     @Bean("firebaseApp")
     public FirebaseApp firebaseApp() {
-        // Already initialized (e.g. hot reload)
         if (!FirebaseApp.getApps().isEmpty()) {
-            log.info("🔥 Firebase already initialized.");
             return FirebaseApp.getInstance();
         }
-
         try {
             GoogleCredentials credentials = loadCredentials();
             if (credentials == null) {
-                log.warn("⚠️  GOOGLE_APPLICATION_CREDENTIALS_JSON not set and no classpath file found.");
-                log.warn("⚠️  Starting without Firebase — data will NOT persist to Firestore.");
-                log.warn("⚠️  Set GOOGLE_APPLICATION_CREDENTIALS_JSON on Render to enable persistence.");
-                return null; // graceful degradation
+                log.warn("⚠️  No Firebase credentials found — Firestore disabled.");
+                log.warn("    Set GOOGLE_APPLICATION_CREDENTIALS_JSON env variable on Render to enable.");
+                return null;
             }
-
             FirebaseOptions options = FirebaseOptions.builder()
                 .setCredentials(credentials)
                 .setProjectId(projectId)
                 .build();
-
             FirebaseApp app = FirebaseApp.initializeApp(options);
             log.info("🔥 Firebase connected! Project: {}", projectId);
             return app;
-
         } catch (Exception e) {
-            log.error("❌ Firebase init failed: {}", e.getMessage());
-            log.warn("⚠️  Starting without Firebase.");
+            log.error("❌ Firebase init error: {} — starting without Firestore.", e.getMessage());
             return null;
         }
     }
+
+    // -------------------------------------------------------
+    // Firestore — only created when FirebaseApp is available
+    // Uses @Autowired(required=false) via method parameter trick:
+    // Spring skips this bean entirely when firebaseApp is null
+    // by using @Bean with a conditional check inside.
+    // -------------------------------------------------------
 
     @Bean
-    public Firestore firestore(FirebaseApp firebaseApp) {
-        if (firebaseApp == null) {
-            log.warn("⚠️  Firestore unavailable — Firebase not initialized.");
+    public Firestore firestore() {
+        if (FirebaseApp.getApps().isEmpty()) {
+            log.warn("⚠️  Firestore bean not created — Firebase not initialized.");
             return null;
         }
-        return FirestoreClient.getFirestore(firebaseApp);
+        try {
+            return FirestoreClient.getFirestore();
+        } catch (Exception e) {
+            log.error("❌ Could not create Firestore bean: {}", e.getMessage());
+            return null;
+        }
     }
 
+    // -------------------------------------------------------
+    // Credential loading
+    // -------------------------------------------------------
+
     private GoogleCredentials loadCredentials() throws IOException {
-        // Option 1: env variable (Render production)
+        // Priority 1: env variable (Render / Docker / CI)
         String credJson = System.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON");
         if (credJson != null && !credJson.isBlank()) {
             log.info("🔥 Loading Firebase credentials from env variable.");
@@ -87,7 +98,7 @@ public class FirebaseConfig {
             }
         }
 
-        // Option 2: classpath file (local dev)
+        // Priority 2: classpath file (local dev)
         try {
             ClassPathResource resource = new ClassPathResource(credentialsFile);
             if (resource.exists()) {
@@ -97,7 +108,7 @@ public class FirebaseConfig {
                 }
             }
         } catch (Exception e) {
-            log.warn("Classpath credentials not found: {}", e.getMessage());
+            log.debug("Classpath credentials not found: {}", e.getMessage());
         }
 
         return null;
